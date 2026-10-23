@@ -1,0 +1,50 @@
+{
+  "name": "대충알피지",
+  "tree": {
+    "$className": "DataModel",
+    "Lighting": {
+      "$properties": {
+        "Technology": "Future",
+        "LightingStyle": "Realistic",
+        "PrioritizeLightingQuality": true,
+        "GlobalShadows": true
+      }
+    },
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "shared",
+        "CreatureModels": {
+          "$className": "Folder"
+        },
+        "CuratedWorldModels": {
+          "$className": "Folder"
+        },
+        "CuratedWeatherEffects": {
+          "$className": "Folder"
+        },
+        "CuratedUiTemplates": {
+          "$className": "Folder"
+        }
+      }
+    },
+    "ServerScriptService": {
+      "GameServer": {
+        "$path": "server"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "GameClient": {
+          "$path": "client"
+        }
+      }
+    },
+    "Workspace": {
+      "$properties": {
+        "StreamingEnabled": true,
+        "StreamingMinRadius": 64,
+        "StreamingTargetRadius": 256
+      }
+    }
+  }
+}
