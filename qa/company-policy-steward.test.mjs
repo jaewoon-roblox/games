@@ -237,7 +237,11 @@ test('Roblox organization admits only six source-ready prioritized games without
   assert.equal(result.enabled,true);
   assert.equal(catalog.games.length,46);
   assert.equal(result.selectedGameIds.length,policy.robloxDevelopmentInvestment.activePortfolio.activeGameTarget);
-  assert.deepEqual(result.selectedGameIds,policy.robloxDevelopmentInvestment.activePortfolio.preferredGameIds);
+  assert.deepEqual(result.selectedGameIds,[
+    'simple-rpg','insect-survival','cozy-island','fantasy-survival','daechung-rpg','bug-defense'
+  ]);
+  assert.ok(result.sourceBlockedGameIds.includes('horror-escape-room'));
+  assert.ok(policy.robloxDevelopmentInvestment.activePortfolio.preferredGameIds.includes('horror-escape-room'));
   assert.equal(result.maxQueuedDevelopmentTasks,12);
   assert.ok(result.sourceReadyGameIds.length>result.selectedGameIds.length);
   assert.ok(result.sourceReadyGameIds.length<catalog.games.length);
