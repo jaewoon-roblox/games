@@ -626,6 +626,6 @@ test('original design runtime source excludes held platform seeds and absent web
   assert.doesNotMatch(source,/['"]company-directive\\.json['"]/);
   assert.match(source,/ROBLOX_DESIGN_OWNER_POLICY_UNVERIFIED/);
   assert.match(source,/ROBLOX_ONLY_OWNER_POLICY/);
-  assert.match(source,/const active=eligible\\.filter\\(seed=>String\\(seed\\?\\.INITIAL_TARGET_PLATFORM/);
+  assert.ok(source.includes('const active=eligible.filter(seed=>String(seed?.INITIAL_TARGET_PLATFORM'));
   assert.match(source,/HELD_FOREIGN_OR_UNDECLARED/);
 });
