@@ -3932,6 +3932,16 @@ export function findSafeTasks(project,repoRoot,queue,assetRegistryCache=null){
   const holisticBackfillTasks=studioTasks.filter(task=>task?.studioQualityEvolution?.existingHolisticBackfillRequired===true);
   const normalStudioTasks=studioTasks.filter(task=>task?.studioQualityEvolution?.existingHolisticBackfillRequired!==true);
   if(project.engine==='roblox'){
+    // 기존 F0 실측 품질 실패는 원래의 인과 수리 우선순위를 유지한다.
+    // 정상 자율 개발에서는 Owner 직접 요청 > 일반 게임 코드 > 자산 신규 제작.
+    // 이는 소스·검증 우회가 아니라 같은 후보들의 기존 예약 순서만 바꾼다.
+    const preferRunnableRobloxDevelopment=rows=>uniqueTaskCandidates(rows)
+      .map((task,index)=>({task,index}))
+      .sort((a,b)=>{
+        const rank=t=>t.ownerDirective===true?0:t.assetProductionLane===true?2:1;
+        return rank(a.task)-rank(b.task)||a.index-b.index;
+      })
+      .map(row=>row.task);
     if(project.queueRobloxQualityBuildUpRequired===true)return uniqueTaskCandidates([
       ...holisticBackfillTasks,
       findDeclaredDccAuthoringTask(project,repoRoot,queue,sourceBoundRegistry),
@@ -3941,7 +3951,7 @@ export function findSafeTasks(project,repoRoot,queue,assetRegistryCache=null){
       findWeatherPresentationTask(project,repoRoot,queue),
       scanExplicitMarkerTask(project,repoRoot,queue)
     ]);
-    return uniqueTaskCandidates([
+    return preferRunnableRobloxDevelopment([
       findRobloxInternalPlaytestTask(project,repoRoot,queue),
       ...holisticBackfillTasks,
       findDeclaredDccAuthoringTask(project,repoRoot,queue,sourceBoundRegistry),

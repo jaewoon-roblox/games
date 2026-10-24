@@ -457,6 +457,10 @@ test('Roblox canonical autonomous plan reserves a real task and generates work i
   });
   console.log('ROBLOX_AUTONOMOUS_CANDIDATE_LANES='+JSON.stringify(observed));
   assert.equal(initial.planned,true,'canonical planner must create real tasks');
+  // 실측 자산 학습이 없는 경우에도 일반 로블록스 게임 개발은 별개 실행 경로다.
+  assert.ok(initial.tasks.some(task=>task.executionLane==='GAME_PRIMARY'),
+    'Roblox autonomous planner must not starve all game code behind asset-only tasks');
+  assert.ok(initial.tasks.every(task=>task.target==='roblox'));
   assert.ok(initial.queue.tasks.length>0,'there must be runnable source tasks');
   const lane=initial.queue.tasks.some(t=>t.executionLane==='GAME_PRIMARY'&&t.status==='queued')
     ? 'game-primary':'asset-development';
@@ -477,9 +481,9 @@ test('Roblox canonical autonomous plan reserves a real task and generates work i
     gameId:task.gameId,workOrderRun:order.run,workOrderReason:order.reason||null,
     target:order.target||null
   }));
-  // 검증된 외부 자산 학습이 없으면 기존 자산 게이트는 차단된 상태를 유지한다.
-  assert.equal(order.run,false,'asset production must not run without verified asset distillation');
-  assert.equal(order.reason,'VERIFIED_COMMERCIAL_BLACK_BOX_DISTILLATION_REQUIRED_FOR_INTERNAL_ASSET_PRODUCTION');
+  // 자동으로 예약된 작업은 실제 일반 코드 또는 여전히 보호된 자산 작업이어야 한다.
+  assert.ok(order.run===true||order.reason==='VERIFIED_COMMERCIAL_BLACK_BOX_DISTILLATION_REQUIRED_FOR_INTERNAL_ASSET_PRODUCTION');
+  assert.ok(!order.run||order.target==='roblox');
   const request={gameId:'simple-rpg',goal:'기존 캐릭터 움직임과 화면 UI를 기존 기능 보존하며 수정',requestId:'1234568',
     files:'client/Game.client.luau;shared/GameConfig.luau'};
   const queued=enqueueOwnerRobloxOnePatch({queue:{tasks:[]},catalog,request,repoRoot:root,policy});
