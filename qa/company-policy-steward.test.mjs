@@ -242,7 +242,8 @@ test('Roblox organization admits only six source-ready prioritized games without
   ]);
   assert.ok(result.sourceBlockedGameIds.includes('horror-escape-room'));
   assert.ok(policy.robloxDevelopmentInvestment.activePortfolio.preferredGameIds.includes('horror-escape-room'));
-  assert.equal(result.maxQueuedDevelopmentTasks,12);
+  assert.equal(result.maxQueuedDevelopmentTasks,null);
+  assert.equal(policy.robloxDevelopmentInvestment.activePortfolio.taskAllocation,'EXISTING_CANONICAL_QUEUE_AND_RUNNER_BACKPRESSURE_NO_PER_GAME_CAP');
   assert.ok(result.sourceReadyGameIds.length>result.selectedGameIds.length);
   assert.ok(result.sourceReadyGameIds.length<catalog.games.length);
   assert.ok(result.sourceBlockedGameIds.includes('ocean-voyage'));
@@ -263,8 +264,8 @@ test('Roblox portfolio selector never restricts unrelated repository architectur
   assert.equal(result.projects.length,1);
 }));
 
-// 메인 계획기 실제 결과에 상한을 적용한다. 파일·원격 상태는 읽기만 한다.
-test('Roblox planner limits actual new task reservations by game and portfolio',()=>{
+// 로블록스 집중 게임 6개만 대상으로 하되, 게임당 2개/전체 12개 인위적인 상한은 두지 않는다.
+test('Roblox planner keeps selection and existing runtime pressure without per-game cap',()=>{
   const catalog=JSON.parse(fs.readFileSync(path.join(root,'game-catalog.json'),'utf8'));
   const result=planVibe2AutonomousTasks({
     catalog,status:{projects:[]},developmentQueue:{items:[]},
@@ -278,11 +279,9 @@ test('Roblox planner limits actual new task reservations by game and portfolio',
   assert.ok(result.tasks.every(task=>portfolio.selectedGameIds.includes(task.gameId)),
     'unselected Roblox games must not be planned');
   const primary=result.tasks.filter(task=>task.executionLane==='GAME_PRIMARY');
-  assert.ok(primary.length<=12,'only twelve new primary tasks can be planned');
-  for(const id of portfolio.selectedGameIds){
-    assert.ok(primary.filter(task=>task.gameId===id).length<=2,'per-game primary limit: '+id);
-  }
-  // 한 계획 주기의 결과를 다시 전달해도 초과 예약이 발생하지 않아야 한다.
+  assert.equal(portfolio.maxQueuedDevelopmentTasks,null,'no synthetic 12-task ceiling');
+  assert.ok(primary.length<=256,'canonical queue capacity remains enforced');
+  // 같은 계획을 반복해도 다른 조직 게임이 들어오거나 원래 큐 용량을 넘기면 안 된다.
   const refill=planVibe2AutonomousTasks({
     catalog,status:{projects:[]},developmentQueue:{items:[]},
     queue:result.queue,repoRoot:root,
@@ -291,11 +290,8 @@ test('Roblox planner limits actual new task reservations by game and portfolio',
   });
   const activePrimary=refill.queue.tasks.filter(task=>
     ['queued','running'].includes(task.status)&&task.executionLane==='GAME_PRIMARY');
-  assert.ok(activePrimary.length<=12,'repeat planning may not overflow portfolio');
+  assert.ok(activePrimary.length<=256,'repeat planning may not overflow canonical queue');
   assert.ok(activePrimary.every(task=>portfolio.selectedGameIds.includes(task.gameId)));
-  for(const id of portfolio.selectedGameIds){
-    assert.ok(activePrimary.filter(task=>task.gameId===id).length<=2,'repeat per-game limit: '+id);
-  }
   console.log('ROBLOX_PORTFOLIO_PLAN_REASON='+result.reason);
   console.log('ROBLOX_PORTFOLIO_PLAN_BACKLOG='+JSON.stringify({capacity:result.planningBacklog?.capacity,current:result.planningBacklog?.current,target:result.planningBacklog?.target,sourceReadyCount:result.planningBacklog?.robloxPortfolio?.sourceReadyCount,missing:result.planningBacklog?.robloxPortfolio?.sourceBlockedGameIds?.length}));
   console.log('ROBLOX_PORTFOLIO_PLANNED_TASKS='+primary.length);
