@@ -608,3 +608,14 @@ test('verified CC0 assets allow light adaptation without claiming native derivat
   assert.equal(plan.qaPassed,false);
   assert.equal(plan.newQueueOrShadowPipelineCreated,false);
 });
+
+test('Roblox independent CC0 license ledger exists but cannot invent verification',()=>{
+  const ledger=JSON.parse(fs.readFileSync(path.join(root,'assets/asset-license-ledger.json'),'utf8'));
+  assert.equal(ledger.policy?.organization,'jaewoon-roblox/games');
+  assert.equal(ledger.policy?.candidateCatalogIsNotLicenseProof,true);
+  assert.equal(ledger.policy?.publicUseRequiresLedgerEntry,true);
+  assert.equal(ledger.policy?.minimalStyleAdaptationAllowed,true);
+  assert.equal(ledger.policy?.derivativeRuntimeQASeparateFromOriginal,true);
+  assert.equal(ledger.policy?.onDemandAcquisitionOnlyAfterVerifiedInventoryGap,true);
+  assert.deepEqual(ledger.entries,[],'unverified Roblox asset must not be promoted to a licensed source');
+});
