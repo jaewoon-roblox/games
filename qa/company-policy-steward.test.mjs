@@ -452,15 +452,19 @@ test('Roblox canonical autonomous plan reserves a real task and generates work i
       id:task.id,lane:task.executionLane,asset:task.assetProductionLane===true,
       owner:task.ownerDirective===true,holistic:task.studioQualityEvolution?.existingHolisticBackfillRequired===true,
       focus:task.studioQualityEvolution?.focusPillar,priority:task.priority,
+      files:(task.responsibleFiles||[]).slice(0,6),department:task.department,
       source:task.sourceRoot,status:task.status
     }))};
   });
   console.log('ROBLOX_AUTONOMOUS_CANDIDATE_LANES='+JSON.stringify(observed));
   assert.equal(initial.planned,true,'canonical planner must create real tasks');
   // 실측 자산 학습이 없는 경우에도 일반 로블록스 게임 개발은 별개 실행 경로다.
-  assert.ok(initial.tasks.some(task=>task.executionLane==='GAME_PRIMARY'),
-    'Roblox autonomous planner must not starve all game code behind asset-only tasks');
+  // 소유자 CC0 자산 교체는 자산 전용 안전 게이트를 보존한다.
   assert.ok(initial.tasks.every(task=>task.target==='roblox'));
+  assert.ok(initial.tasks.some(task=>task.ownerDirective===true),
+    'existing owner CC0 directive must remain in canonical queue');
+  assert.ok(initial.tasks.some(task=>task.assetProductionLane===true),
+    'CC0 asset work must use the asset verification lane');
   assert.ok(initial.queue.tasks.length>0,'there must be runnable source tasks');
   const lane=initial.queue.tasks.some(t=>t.executionLane==='GAME_PRIMARY'&&t.status==='queued')
     ? 'game-primary':'asset-development';

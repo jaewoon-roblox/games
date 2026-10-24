@@ -2474,7 +2474,9 @@ export function findPresentationQualityTask(project,repoRoot,queue){
       'presentation-pass:ASSET_ADAPTATION','presentation-preserve-gameplay-semantics',
       'presentation-runtime-qa-required','cc0-original-hash-and-license-required'
     ]);
-    out.ownerDirective=true;out.speculativeEligible=false;
+    // CC0 모델·모션·UI 원본 파생은 일반 로직 작업이 아니라 자산 제작 작업이다.
+    // F0~F9/원본 SHA/검증된 학습 게이트는 게임 코드 경로로 우회하지 않는다.
+    out.ownerDirective=true;out.assetProductionLane=true;out.speculativeEligible=false;
     return out;
   }
   const stages=presentationStagesForProject(project);
