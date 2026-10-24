@@ -13,6 +13,18 @@ on:
         required: false
         type: string
         default: ''
+      roblox_game:
+        required: false
+        type: string
+        default: ''
+      roblox_file:
+        required: false
+        type: string
+        default: ''
+      roblox_goal:
+        required: false
+        type: string
+        default: ''
   workflow_dispatch:
     inputs:
       execution_lane:
@@ -25,6 +37,18 @@ on:
           - learning-idle
           - control-fast
       lane_max:
+        required: false
+        type: string
+        default: ''
+      roblox_game:
+        required: false
+        type: string
+        default: ''
+      roblox_file:
+        required: false
+        type: string
+        default: ''
+      roblox_goal:
         required: false
         type: string
         default: ''
@@ -97,6 +121,9 @@ env:
   VIBE2_OPENAI_PAID_API_ALLOWED: 'false'
   VIBE2_SHARED_CONTEXT_REQUIRED: 'true'
   VIBE2_EXECUTION_LANE: ${{ inputs.execution_lane || github.event.client_payload.execution_lane || 'game-primary' }}
+  VIBE2_ROBLOX_ONEPATCH_GAME: ${{ inputs.roblox_game || '' }}
+  VIBE2_ROBLOX_ONEPATCH_FILE: ${{ inputs.roblox_file || '' }}
+  VIBE2_ROBLOX_ONEPATCH_GOAL: ${{ inputs.roblox_goal || '' }}
   VIBE2_LANE_MAX: ${{ (inputs.execution_lane || github.event.client_payload.execution_lane || 'game-primary') == 'learning-idle' && '1' || ((inputs.execution_lane || github.event.client_payload.execution_lane || 'game-primary') == 'asset-development' && '63') || ((inputs.execution_lane || github.event.client_payload.execution_lane || 'game-primary') == 'recovery-fast' && '5') || ((inputs.execution_lane || github.event.client_payload.execution_lane || 'game-primary') == 'game-primary' && '128') || inputs.lane_max || '64' }}
 
 jobs:
@@ -830,6 +857,10 @@ jobs:
             # but an optimistic push conflict must not repeat that expensive work when it produced no
             # queue/directive mutation. The retry still fetches the latest control state and recomputes
             # steward/recovery/reservation against that exact queue; no global lock or serialization is added.
+            if [ -n "${VIBE2_ROBLOX_ONEPATCH_GAME:-}${VIBE2_ROBLOX_ONEPATCH_FILE:-}${VIBE2_ROBLOX_ONEPATCH_GOAL:-}" ] && [ "$VIBE2_EXECUTION_LANE" != 'game-primary' ]; then
+              echo 'ROBLOX_ONEPATCH_GAME_PRIMARY_LANE_REQUIRED' >&2
+              exit 1
+            fi
             if [[ "$VIBE2_EXECUTION_LANE" == 'asset-development' || "$VIBE2_EXECUTION_LANE" == 'recovery-fast' ]]; then
               echo "VIBE2_LANE_LOCAL_RESERVE_GLOBAL_REPLAN=SKIPPED_EXISTING_CANONICAL_QUEUE:$VIBE2_EXECUTION_LANE"
               echo "VIBE2_LANE_LOCAL_RESERVE_QUEUE_AUTHORITY=EXISTING_CANONICAL_VIBE_QUEUE:$VIBE2_EXECUTION_LANE"
