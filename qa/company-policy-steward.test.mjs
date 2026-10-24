@@ -380,7 +380,7 @@ test('Roblox-only workflow triggers and restored canonical runner modules remain
       file+' must never wake from a foreign game source tree');
     assert.match(workflow,/roblox-games\/\*\*/);
   }
-  for(const file of ["tools/vibe2-neural-expansion-readiness.mjs","tools/vibe2-neural-shadow-audit.mjs","tools/vibe2-neural-phase2-readiness.mjs","tools/vibe2-remote-work-lock.mjs","tools/vibe2-performance-sanity.mjs","tools/company-design-checkpoint-recovery.mjs"]){
+  for(const file of ["tools/vibe2-neural-expansion-readiness.mjs","tools/vibe2-neural-shadow-audit.mjs","tools/vibe2-neural-phase2-readiness.mjs","tools/vibe2-remote-work-lock.mjs","tools/vibe2-performance-sanity.mjs","tools/company-design-checkpoint-recovery.mjs","tools/vibe2-system-steward.mjs","tools/vibe2-fan-in-review.mjs","tools/vibe2-incremental-qa.mjs","tools/vibe2-experience-control.mjs","tools/vibe2-self-architecture-evolution.mjs","tools/company-development-roblox-runtime-foundation.mjs"]){
     assert.ok(fs.statSync(path.join(root,file)).isFile(),file+' must exist for canonical runner');
   }
 });
