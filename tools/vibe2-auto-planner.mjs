@@ -829,6 +829,62 @@ function isWeatherPresentationPilot(project={},repoRoot=process.cwd()){
   const policy=centralPresentationPolicy(repoRoot),contract=policy?.weatherPresentationContract||{},first=contract?.firstAdoption||{};
   return contract?.enabled===true&&clean(first.gameId)===clean(project.gameId)&&['unity','roblox','web'].includes(clean(project.engine).toLowerCase());
 }
+// 로블록스 조직 전용 기존 Vibe2 계획기 포트폴리오 선정.
+// 목록은 보존하며 실제 Roblox 소스가 확인된 게임만 작은 개발 파동에 편입한다.
+export function selectRobloxDevelopmentPortfolio(projects=[],catalog={},repoRoot=process.cwd()){
+  const ownerPolicy=centralPresentationPolicy(repoRoot)||{};
+  const config=ownerPolicy?.robloxDevelopmentInvestment?.activePortfolio||{};
+  const architecture=readJson(path.join(repoRoot,'company-learning/company-architecture-map.json'),{});
+  if(config.enabled!==true||architecture?.repository?.fullName!=='jaewoon-roblox/games'){
+    return{enabled:false,projects,selectedGameIds:[],sourceReadyGameIds:[],sourceBlockedGameIds:[],maxQueuedDevelopmentTasks:null};
+  }
+  if(config.repository!=='jaewoon-roblox/games'
+    ||!Number.isInteger(config.activeGameTarget)||config.activeGameTarget<1
+    ||!Number.isInteger(config.queuedDevelopmentTasksPerActiveGame)||config.queuedDevelopmentTasksPerActiveGame<1
+    ||!Array.isArray(config.preferredGameIds)||new Set(config.preferredGameIds).size!==config.preferredGameIds.length
+    ||!Array.isArray(config.requiredSourceFiles)||config.requiredSourceFiles.length<3)
+    throw new Error('ROBLOX_PORTFOLIO_CANONICAL_POLICY_INVALID');
+  const byId=catalogById(catalog);
+  const preference=new Map(config.preferredGameIds.map((id,index)=>[id,index]));
+  const candidates=[],sourceBlockedGameIds=[];
+  for(const project of projects){
+    if(project.engine!=='roblox')continue;
+    const id=clean(project.gameId),game=byId.get(id);
+    const exactRoot='roblox-games/'+id;
+    if(!game||!id||!lifecycleAllowsDevelopment(game)
+      ||!['release-confirmed','development-confirmed'].includes(project.releaseState)
+      ||posix(project.projectPath)!==exactRoot
+      ||!config.requiredSourceFiles.every(relative=>{
+        if(!/^(?:[a-zA-Z0-9_-]+\\/)*[a-zA-Z0-9_.-]+$/.test(relative))return false;
+        const file=path.join(repoRoot,exactRoot,relative);
+        try{return fs.statSync(file).isFile()&&fs.statSync(file).size>0;}catch{return false;}
+      })){
+      if(id)sourceBlockedGameIds.push(id);
+      continue;
+    }
+    candidates.push(project);
+  }
+  candidates.sort((a,b)=>{
+    const ap=preference.has(a.gameId)?preference.get(a.gameId):Number.MAX_SAFE_INTEGER;
+    const bp=preference.has(b.gameId)?preference.get(b.gameId):Number.MAX_SAFE_INTEGER;
+    if(ap!==bp)return ap-bp;
+    const ag=byId.get(a.gameId)||{},bg=byId.get(b.gameId)||{};
+    const owner=(bg.ownerDirectDevelopment===true?1:0)-(ag.ownerDirectDevelopment===true?1:0);
+    if(owner)return owner;
+    const rank=Number(ag.ownerPrimaryRank||999)-Number(bg.ownerPrimaryRank||999);
+    if(rank)return rank;
+    const existing=(bg.ownerExistingGame===true?1:0)-(ag.ownerExistingGame===true?1:0);
+    if(existing)return existing;
+    return projectSort(a,b);
+  });
+  const selected=candidates.slice(0,config.activeGameTarget);
+  const selectedGameIds=selected.map(item=>item.gameId);
+  return{
+    enabled:true,projects:selected,selectedGameIds,
+    sourceReadyGameIds:candidates.map(item=>item.gameId),sourceBlockedGameIds,
+    maxQueuedDevelopmentTasks:config.activeGameTarget*config.queuedDevelopmentTasksPerActiveGame
+  };
+}
 function isAutonomousProductionTarget(project={},repoRoot=process.cwd()){
   const policy=centralPresentationPolicy(repoRoot);
   const ownerScope=resolveActiveOwnerPolicy(policy,{allowMissing:true});
@@ -4040,8 +4096,8 @@ export function planVibe2AutonomousTasks({status={},catalog={},developmentQueue=
   catalog=discoverExistingRobloxGames(catalog,repoRoot).catalog;
   const executionWaveMax=parallelLimit(maxConcurrentTasks);
   const persistentQueueMax=parallelLimit(queueMaxConcurrentTasks);
-  const backlogTarget=Math.max(1,Math.min(persistentQueueMax,Number(planningBacklogTarget)||executionWaveMax));
-  const backlogMinimum=Math.max(0,Math.min(backlogTarget,Number(planningBacklogMinimum)||0));
+  let backlogTarget=Math.max(1,Math.min(persistentQueueMax,Number(planningBacklogTarget)||executionWaveMax));
+  let backlogMinimum=Math.max(0,Math.min(backlogTarget,Number(planningBacklogMinimum)||0));
   let queue=createVibeContinuousQueue({...synchronizeQueueLifecycle(queueInput||{},catalog,historicalRegistry,repoRoot),maxConcurrentTasks:persistentQueueMax});
   queue=synchronizeOwnerDevelopmentHolds(queue,centralPresentationPolicy(repoRoot)||{});
   const catalogGames=catalogById(catalog);
@@ -4129,7 +4185,21 @@ export function planVibe2AutonomousTasks({status={},catalog={},developmentQueue=
   const microSupersede=supersedeLegacyMicroTasksForStudioQuality(queue);
   queue=microSupersede.queue;
   const focusCompletionContract=focusedCaretakerPolicy(repoRoot).completionPursuit;
-  const allProjects=collectProjects(status,catalog,repoRoot,developmentQueue).map(project=>({...project,ownerFocusedCaretaker:focusedCaretakerProject(project,repoRoot),focusCompletionContract}));
+  const discoveredProjects=collectProjects(status,catalog,repoRoot,developmentQueue)
+    .map(project=>({...project,ownerFocusedCaretaker:focusedCaretakerProject(project,repoRoot),focusCompletionContract}));
+  const robloxPortfolio=selectRobloxDevelopmentPortfolio(discoveredProjects,catalog,repoRoot);
+  const allProjects=robloxPortfolio.projects;
+  if(robloxPortfolio.enabled){
+    backlogTarget=Math.min(backlogTarget,robloxPortfolio.maxQueuedDevelopmentTasks);
+    backlogMinimum=Math.min(backlogMinimum,backlogTarget);
+  }
+  const portfolioProjectSort=robloxPortfolio.enabled
+    ?(a,b)=>{
+      const ai=robloxPortfolio.selectedGameIds.indexOf(a.gameId);
+      const bi=robloxPortfolio.selectedGameIds.indexOf(b.gameId);
+      if(ai>=0&&bi>=0&&ai!==bi)return ai-bi;
+      return projectSort(a,b);
+    }:projectSort;
   const holisticPriorityDeferral=deprioritizeQueuedGenericPolishForHolisticBackfill(queue,allProjects,repoRoot);
   queue=holisticPriorityDeferral.queue;
   const buildUpDirectiveBackfill=synchronizeQueuedBuildUpDirectives(queue,allProjects,repoRoot);
@@ -4164,7 +4234,7 @@ export function planVibe2AutonomousTasks({status={},catalog={},developmentQueue=
   const developmentPool=developmentPlanningPool(queue);
   const ownerResumableProjects=allProjects
     .filter(project=>project.ownerResumableBuildUp===true&&isAutonomousProductionTarget(project,repoRoot))
-    .sort(projectSort);
+    .sort(portfolioProjectSort);
   const activeOwnerResumableLaneKeys=new Set(developmentPool.map(item=>clean(item.gameId)+'|'+studioQualityTaskLane(item)));
   const ownerResumableMissingLaneKeys=new Set(ownerResumableProjects
     .map(project=>clean(project.gameId)+'|'+studioQualityLane(project))
@@ -4177,7 +4247,7 @@ export function planVibe2AutonomousTasks({status={},catalog={},developmentQueue=
   // Never interrupt independent active work or exceed persistent queue capacity.
   const focusedProjects=allProjects
     .filter(project=>project.ownerFocusedCaretaker===true&&isAutonomousProductionTarget(project,repoRoot))
-    .sort(projectSort);
+    .sort(portfolioProjectSort);
   const focusedMissingLaneKeys=new Set(focusedProjects
     .map(project=>clean(project.gameId)+'|'+studioQualityLane(project))
     .filter(key=>!activeOwnerResumableLaneKeys.has(key)));
@@ -4213,6 +4283,12 @@ export function planVibe2AutonomousTasks({status={},catalog={},developmentQueue=
   const capacity=Math.max(normalCapacity,ownerResumableSeedCapacity,focusedSeedCapacity,internalMotionCapacity,webSeedCapacity,distinctSeedCapacity);
   const planningBacklog={
     target:backlogTarget,
+    robloxPortfolio:robloxPortfolio.enabled?{
+      selectedGameIds:robloxPortfolio.selectedGameIds,
+      sourceReadyCount:robloxPortfolio.sourceReadyGameIds.length,
+      sourceBlockedGameIds:robloxPortfolio.sourceBlockedGameIds,
+      maxQueuedDevelopmentTasks:robloxPortfolio.maxQueuedDevelopmentTasks
+    }:null,
     supersededLegacyMicroTasks:microSupersede.count,
     minimum:backlogMinimum,
     current:developmentPool.length,
@@ -4236,7 +4312,7 @@ export function planVibe2AutonomousTasks({status={},catalog={},developmentQueue=
   };
   if(!capacity)return{planned:false,count:0,reason:'DEVELOPMENT_BACKLOG_TARGET_REACHED',queue,tasks:[],packages:[],planningBacklog,holisticPriorityDeferralCount:holisticPriorityDeferral.count,buildUpDirectiveBackfillCount:buildUpDirectiveBackfill.changed,runtimeNeuralEvents,runtimeNeuralMutations:runtimeNeuralIngress.applied,workloadTelemetry:computeWorkloadTelemetry(queue,[])};
   const policy=resolveWorkPackagePolicy(workPackagePolicy,queue);
-  const blockedTier1=allProjects.filter(project=>project.releaseState==='release-confirmed'&&project.engine==='unity'&&project.developmentBaseline?.ready!==true),projects=allProjects.filter(project=>isAutonomousProductionTarget(project,repoRoot)).sort(projectSort);
+  const blockedTier1=allProjects.filter(project=>project.releaseState==='release-confirmed'&&project.engine==='unity'&&project.developmentBaseline?.ready!==true),projects=allProjects.filter(project=>isAutonomousProductionTarget(project,repoRoot)).sort(portfolioProjectSort);
   if(!projects.length)return{planned:false,count:0,reason:blockedTier1.length?'DEVELOPMENT_BASELINE_REQUIRED':'NO_CONFIRMED_PRODUCTION_PROJECT',queue,tasks:[],packages:[],planningBacklog,holisticPriorityDeferralCount:holisticPriorityDeferral.count,buildUpDirectiveBackfillCount:buildUpDirectiveBackfill.changed,runtimeNeuralEvents,runtimeNeuralMutations:runtimeNeuralIngress.applied,workPackagePolicy:policy,workloadTelemetry:computeWorkloadTelemetry(queue,[]),blockedTier1GameIds:blockedTier1.map(p=>p.gameId)};
   const planned=[],packages=[],deferredSmallPackages=[];
   // 이 Map은 매 기획 호출마다 새로 만든다. 병렬 게임 간 파일 책임/보안/런타임 게이트에는 관여하지 않는다.
