@@ -296,6 +296,8 @@ test('Roblox planner limits actual new task reservations by game and portfolio',
   for(const id of portfolio.selectedGameIds){
     assert.ok(activePrimary.filter(task=>task.gameId===id).length<=2,'repeat per-game limit: '+id);
   }
+  console.log('ROBLOX_PORTFOLIO_PLAN_REASON='+result.reason);
+  console.log('ROBLOX_PORTFOLIO_PLAN_BACKLOG='+JSON.stringify({capacity:result.planningBacklog?.capacity,current:result.planningBacklog?.current,target:result.planningBacklog?.target,sourceReadyCount:result.planningBacklog?.robloxPortfolio?.sourceReadyCount,missing:result.planningBacklog?.robloxPortfolio?.sourceBlockedGameIds?.length}));
   console.log('ROBLOX_PORTFOLIO_PLANNED_TASKS='+primary.length);
   console.log('ROBLOX_PORTFOLIO_REFILL_ACTIVE_TASKS='+activePrimary.length);
 });
