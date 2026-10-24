@@ -294,6 +294,7 @@ test('Roblox planner keeps selection and existing runtime pressure without per-g
   assert.ok(activePrimary.every(task=>portfolio.selectedGameIds.includes(task.gameId)));
   console.log('ROBLOX_PORTFOLIO_PLAN_REASON='+result.reason);
   console.log('ROBLOX_PORTFOLIO_PLAN_BACKLOG='+JSON.stringify({capacity:result.planningBacklog?.capacity,current:result.planningBacklog?.current,target:result.planningBacklog?.target,sourceReadyCount:result.planningBacklog?.robloxPortfolio?.sourceReadyCount,missing:result.planningBacklog?.robloxPortfolio?.sourceBlockedGameIds?.length}));
+  console.log('ROBLOX_PORTFOLIO_PLAN_OUTPUT='+JSON.stringify({planned:result.planned,count:result.count,reason:result.reason,taskCount:result.tasks.length,lanes:result.tasks.reduce((m,t)=>(m[t.executionLane||'UNSPECIFIED']=(m[t.executionLane||'UNSPECIFIED']||0)+1,m),{}),sample:result.tasks.slice(0,5).map(t=>({id:t.id,gameId:t.gameId,target:t.target,executionLane:t.executionLane,assetProductionLane:t.assetProductionLane}))}));
   console.log('ROBLOX_PORTFOLIO_PLANNED_TASKS='+primary.length);
   console.log('ROBLOX_PORTFOLIO_REFILL_ACTIVE_TASKS='+activePrimary.length);
 });
