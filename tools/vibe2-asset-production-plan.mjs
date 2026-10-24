@@ -4820,7 +4820,12 @@ export function buildVibeAssetProductionPlan({
     ...inferStyleExpressionOverridesFromText(request),
     ...(task.styleExpressionOverrides||task.styleExpression?.axes||{})
   };
-  const assetLearningRequired=clean(executionLane).toLowerCase()==='asset-development'||['roblox','unity','web'].includes(resolvedTarget);
+  // 자산 전용 증류 게이트는 실제 자산 제작 책임 작업에만 적용한다.
+  // 게임 기본 코드/저장/전투 작업은 기존 게임 QA와 소스 계약으로 검증한다.
+  const assetLearningRequired=clean(executionLane).toLowerCase()==='asset-development'
+    ||task?.assetProductionLane===true
+    ||task?.motionRepairWorkUnit?.scope==='INTERNAL_ASSET_LIBRARY'
+    ||Boolean(task?.graphicsReplacementContract);
   const verifiedCommercialReuse=freezeList((verifiedLearning?.playbookReuse||[])
     .filter(row=>row?.verified===true&&clean(row?.authority)==='verified-task-playbook'&&clean(row?.id).startsWith('external-black-box-'))
     .map(row=>freeze({
