@@ -278,6 +278,16 @@ test('Roblox planner keeps selection and existing runtime pressure without per-g
   assert.equal(portfolio.selectedGameIds.length,6);
   assert.ok(result.tasks.every(task=>portfolio.selectedGameIds.includes(task.gameId)),
     'unselected Roblox games must not be planned');
+  assert.equal(result.planned,true,'canonical planner must actually create work');
+  assert.ok(result.tasks.length>0,'source-ready Roblox games must produce implementable tasks');
+  const queueTasks=result.queue.tasks.filter(task=>['queued','running'].includes(task.status));
+  assert.equal(queueTasks.length,result.tasks.length,'all proposed tasks must enter the normalized canonical queue');
+  assert.ok(queueTasks.every(task=>
+    portfolio.selectedGameIds.includes(task.gameId)
+    &&task.target==='roblox'
+    &&task.sourceRoot==='roblox-games/'+task.gameId
+    &&['GAME_PRIMARY','ASSET_DEVELOPMENT'].includes(task.executionLane)),
+    'selected Roblox game work must enter the canonical execution lanes');
   const primary=result.tasks.filter(task=>task.executionLane==='GAME_PRIMARY');
   assert.ok(portfolio.maxQueuedDevelopmentTasks==null,'no synthetic 12-task ceiling');
   assert.ok(primary.length<=256,'canonical queue capacity remains enforced');
