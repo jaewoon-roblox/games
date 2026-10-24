@@ -488,3 +488,12 @@ test('Roblox canonical autonomous plan reserves a real task and generates work i
   assert.equal(gameOrder.workerPolicy?.directMainWrite,false);
   assert.equal(gameOrder.deployment?.requiresVerifiedQA,true);
 });
+
+// 로블 조직 기존 설계·학습·복구 실행기 원본 모듈의 실제 ES import 검증.
+test('restored canonical design recovery and learning worker imports resolve',async()=>{
+  for(const name of ["vibe2-verified-design-handoff","vibe2-post-release-focus","vibe2-authorized-source-memory","vibe2-release-dispatch-recovery","vibe2-release-baseline-queue","vibe2-code-pattern-ingest","free-budget-telemetry","vibe2-practice-distillation","vibe2-learning-practice-worker","company-design-cycle","company-baseline-gate","company-design-seed-normalize","company-strict-production-review","owner-design-reset","artbook-fact-pack","production-classification","vibe2-training-sample"]){
+    const file='../tools/'+name+'.mjs';
+    const loaded=await import(new URL(file,import.meta.url).href);
+    assert.ok(loaded&&typeof loaded==='object','canonical module import failed: '+file);
+  }
+});
