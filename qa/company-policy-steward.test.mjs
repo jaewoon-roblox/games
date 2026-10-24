@@ -497,6 +497,13 @@ test('restored canonical design recovery and learning worker imports resolve',as
   try {
   for(const name of ["vibe2-verified-design-handoff","vibe2-post-release-focus","vibe2-authorized-source-memory","vibe2-release-dispatch-recovery","vibe2-release-baseline-queue","vibe2-code-pattern-ingest","free-budget-telemetry","vibe2-practice-distillation","vibe2-learning-practice-worker","company-design-cycle","company-baseline-gate","company-design-seed-normalize","company-strict-production-review","owner-design-reset","artbook-fact-pack","production-classification","vibe2-training-sample"]){
     const file='../tools/'+name+'.mjs';
+    if(name==='artbook-fact-pack'){
+      // 원본 CLI는 import 즉시 ARTBOOK_GAME_ID를 검사하고 종료하도록 설계됐다.
+      // 실행 없이 문법 검사하되, 환경을 위조해 완료 증거를 만들지 않는다.
+      const {execFileSync}=await import('node:child_process');
+      execFileSync(process.execPath,['--check',path.join(root,'tools',name+'.mjs')],{stdio:'pipe'});
+      continue;
+    }
     const loaded=await import(new URL(file,import.meta.url).href);
     assert.ok(loaded&&typeof loaded==='object','canonical module import failed: '+file);
   }
