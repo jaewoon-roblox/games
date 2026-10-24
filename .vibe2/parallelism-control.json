@@ -1,0 +1,11 @@
+{
+  "version": 4,
+  "currentMax": 256,
+  "healthyStreak": 0,
+  "pressureStreak": 0,
+  "lastDecision": "HOLD",
+  "lastReason": "FRESH_ROBLOX_ORGANIZATION_NO_RUNNER_EVIDENCE",
+  "lastRunId": null,
+  "lastUpdatedAt": null,
+  "lastTelemetry": null
+}
