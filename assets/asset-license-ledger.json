@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "purpose": "ROBLOX_ONLY_VERIFIED_CC0_ASSET_LICENSE_PROVENANCE",
+  "policy": {
+    "organization": "jaewoon-roblox/games",
+    "canonicalPolicy": "company-learning/platform-release-roadmap.json",
+    "candidateCatalogIsNotLicenseProof": true,
+    "publicUseRequiresLedgerEntry": true,
+    "sourceOnlyOrPreparedDoesNotCountAsVerified": true,
+    "onDemandAcquisitionOnlyAfterVerifiedInventoryGap": true,
+    "copyrightModificationAllowedForCC0": true,
+    "minimalStyleAdaptationAllowed": true,
+    "originalSourceMustRemainUnmodified": true,
+    "derivativeRequiresDistinctSha256AndSourceParent": true,
+    "derivativeRuntimeQASeparateFromOriginal": true,
+    "requiredFields": [
+      "id",
+      "source",
+      "sourceUrl",
+      "creator",
+      "license",
+      "commercialUse",
+      "modificationUse",
+      "attribution",
+      "verifiedAt",
+      "targetGame",
+      "purpose",
+      "modified",
+      "evidence"
+    ],
+    "blockedLicenses": [
+      "NC",
+      "ND",
+      "NON_COMMERCIAL",
+      "UNKNOWN",
+      "UNCLEAR",
+      "UNKNOWN_MODIFICATION_RIGHTS",
+      "LOST_PROVENANCE"
+    ],
+    "acceptedGameContentLicenses": [
+      "CC0",
+      "CC0-1.0",
+      "CC0 1.0 Universal"
+    ],
+    "scope": "ROBLOX_GAME_CONTENT_ONLY_NOT_ENGINE_OR_SOFTWARE_CODE",
+    "unknownOrUnreviewedEntriesAreNotRuntimeVerified": true
+  },
+  "entries": []
+}
