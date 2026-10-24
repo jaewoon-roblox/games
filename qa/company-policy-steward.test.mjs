@@ -9,7 +9,7 @@ import {fileURLToPath} from 'node:url';
 import {auditFourPolicyDocuments,resolveActiveOwnerPolicy} from '../tools/company-policy-steward.mjs';
 import {ownerDevelopmentHeld} from '../tools/vibe2-queue-control.mjs';
 import {loadCentralPolicySnapshot} from '../tools/vibe2-central-work-contract.mjs';
-import {selectRobloxDevelopmentPortfolio} from '../tools/vibe2-auto-planner.mjs';
+import {selectRobloxDevelopmentPortfolio,planVibe2AutonomousTasks} from '../tools/vibe2-auto-planner.mjs';
 
 // 메인
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -262,3 +262,24 @@ test('Roblox portfolio selector never restricts unrelated repository architectur
   assert.equal(result.enabled,false);
   assert.equal(result.projects.length,1);
 }));
+
+// 메인 계획기 실제 결과에 상한을 적용한다. 파일·원격 상태는 읽기만 한다.
+test('Roblox planner limits actual new task reservations by game and portfolio',()=>{
+  const catalog=JSON.parse(fs.readFileSync(path.join(root,'game-catalog.json'),'utf8'));
+  const result=planVibe2AutonomousTasks({
+    catalog,status:{projects:[]},developmentQueue:{items:[]},
+    queue:{tasks:[]},repoRoot:root,
+    maxConcurrentTasks:256,queueMaxConcurrentTasks:256,
+    planningBacklogTarget:80,planningBacklogMinimum:40
+  });
+  const portfolio=result.planningBacklog?.robloxPortfolio;
+  assert.ok(portfolio,'portfolio must be selected inside canonical planner');
+  assert.equal(portfolio.selectedGameIds.length,6);
+  assert.ok(result.tasks.every(task=>portfolio.selectedGameIds.includes(task.gameId)),
+    'unselected Roblox games must not be planned');
+  const primary=result.tasks.filter(task=>task.executionLane==='GAME_PRIMARY');
+  assert.ok(primary.length<=12,'only twelve new primary tasks can be planned');
+  for(const id of portfolio.selectedGameIds){
+    assert.ok(primary.filter(task=>task.gameId===id).length<=2,'per-game primary limit: '+id);
+  }
+});
