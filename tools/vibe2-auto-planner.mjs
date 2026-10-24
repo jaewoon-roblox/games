@@ -862,6 +862,29 @@ export function selectRobloxDevelopmentPortfolio(projects=[],catalog={},repoRoot
       if(id)sourceBlockedGameIds.push(id);
       continue;
     }
+    // Rojo의 실제 $path 경계를 검사한다. 공용 자산이 없으면 예약하지 않고 후순위로 넘긴다.
+    const projectConfig=readJson(path.join(repoRoot,exactRoot,'default.project.json'),null);
+    const sourceDir=path.resolve(repoRoot,exactRoot),repositoryDir=path.resolve(repoRoot);
+    let dependencyReady=projectConfig!==null&&typeof projectConfig==='object';
+    const pending=dependencyReady?[projectConfig]:[];
+    while(pending.length&&dependencyReady){
+      const node=pending.pop();
+      if(!node||typeof node!=='object')continue;
+      if(typeof node.$path==='string'){
+        const resolved=path.resolve(sourceDir,node.$path);
+        if(!resolved.startsWith(repositoryDir+path.sep)){
+          dependencyReady=false;break;
+        }
+        try{
+          const stat=fs.statSync(resolved);
+          if(!stat.isFile()&&!stat.isDirectory())dependencyReady=false;
+          if(stat.isFile()&&stat.size===0)dependencyReady=false;
+          if(stat.isDirectory()&&fs.readdirSync(resolved).length===0)dependencyReady=false;
+        }catch{dependencyReady=false;}
+      }
+      pending.push(...Object.values(node).filter(value=>value&&typeof value==='object'));
+    }
+    if(!dependencyReady){sourceBlockedGameIds.push(id);continue;}
     candidates.push(project);
   }
   candidates.sort((a,b)=>{
