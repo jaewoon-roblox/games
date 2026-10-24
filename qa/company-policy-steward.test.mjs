@@ -450,6 +450,8 @@ test('Roblox canonical autonomous plan reserves a real task and generates work i
     const candidates=findSafeTasks(project,root,{tasks:[]});
     return {gameId:project.gameId,candidates:candidates.slice(0,12).map(task=>({
       id:task.id,lane:task.executionLane,asset:task.assetProductionLane===true,
+      owner:task.ownerDirective===true,holistic:task.studioQualityEvolution?.existingHolisticBackfillRequired===true,
+      focus:task.studioQualityEvolution?.focusPillar,priority:task.priority,
       source:task.sourceRoot,status:task.status
     }))};
   });
