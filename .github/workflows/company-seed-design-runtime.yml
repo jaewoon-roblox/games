@@ -79,7 +79,7 @@ jobs:
           node --check tools/vibe2-auto-planner.mjs
           node --check tools/vibe2-source-worker.mjs
           node tools/company-constitution-enforcer.mjs --phase=worker-before-source-write
-          node --test qa/company-four-docs-fingerprint.test.mjs qa/company-shared-context-retained.test.mjs qa/company-policy-steward.test.mjs qa/vibe2-design-intelligence.test.mjs qa/vibe2-verified-design-handoff.test.mjs qa/vibe3-roblox-distillation.test.mjs qa/vibe2-neural-expansion-readiness.test.mjs qa/vibe2-learning-practice-worker.test.mjs qa/vibe2-neural-shadow-audit.test.mjs qa/vibe2-neural-phase2-readiness.test.mjs qa/vibe2-neural-diagnosis.test.mjs qa/vibe2-neural-feedback.test.mjs qa/vibe2-neural-critic.test.mjs qa/vibe2-neural-root-cause.test.mjs qa/vibe2-neural-event-router.test.mjs
+          node --test qa/company-four-docs-fingerprint.test.mjs qa/company-shared-context-retained.test.mjs qa/company-policy-steward.test.mjs qa/vibe2-design-intelligence.test.mjs qa/vibe2-verified-design-handoff.test.mjs qa/vibe3-roblox-distillation.test.mjs qa/vibe2-neural-expansion-readiness.test.mjs qa/vibe2-neural-shadow-audit.test.mjs qa/vibe2-neural-phase2-readiness.test.mjs qa/vibe2-neural-diagnosis.test.mjs qa/vibe2-neural-feedback.test.mjs qa/vibe2-neural-critic.test.mjs qa/vibe2-neural-root-cause.test.mjs qa/vibe2-neural-event-router.test.mjs
       - name: Compile selected Roblox projects with pinned Rojo
         shell: bash
         timeout-minutes: 8
