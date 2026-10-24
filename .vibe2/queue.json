@@ -1,0 +1,6 @@
+{
+  "version": 5,
+  "mode": "hierarchical-dag-sharded-work-stealing-queue",
+  "maxConcurrentTasks": 256,
+  "tasks": []
+}
