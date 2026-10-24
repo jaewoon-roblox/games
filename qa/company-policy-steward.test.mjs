@@ -279,7 +279,7 @@ test('Roblox planner keeps selection and existing runtime pressure without per-g
   assert.ok(result.tasks.every(task=>portfolio.selectedGameIds.includes(task.gameId)),
     'unselected Roblox games must not be planned');
   const primary=result.tasks.filter(task=>task.executionLane==='GAME_PRIMARY');
-  assert.equal(portfolio.maxQueuedDevelopmentTasks,null,'no synthetic 12-task ceiling');
+  assert.ok(portfolio.maxQueuedDevelopmentTasks==null,'no synthetic 12-task ceiling');
   assert.ok(primary.length<=256,'canonical queue capacity remains enforced');
   // 같은 계획을 반복해도 다른 조직 게임이 들어오거나 원래 큐 용량을 넘기면 안 된다.
   const refill=planVibe2AutonomousTasks({
