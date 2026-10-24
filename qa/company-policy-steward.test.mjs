@@ -512,3 +512,36 @@ test('restored canonical runtime modules load and side-effecting design CLIs par
     else process.env.COMPANY_VERIFIED_DESIGN_POLICY_PATH=prior;
   }
 });
+
+
+// 웹 조직의 검증된 라이브러리 사용 원칙을 로블록스 자체 자산 원장으로 검증한다.
+// 웹 조직 파일·큐·상태를 소스로 직접 연결하거나 수입하지 않는다.
+test('Roblox asset library reuse and verified-license policy matches approved web principles',()=>{
+  const canonical=JSON.parse(fs.readFileSync(path.join(root,paths[0]),'utf8'));
+  const library=JSON.parse(fs.readFileSync(path.join(root,'company-asset-library.json'),'utf8'));
+  const rules=library.rules||{};
+  const assetPolicy=canonical.assetProductionParallelContract?.assetAcquisitionAndReuse||{};
+  assert.equal(library.kind,'company-asset-library');
+  assert.equal(rules.lookupBeforeNativeAssetChoice,true);
+  assert.equal(rules.existingRepositoryInventoryBeforeExternal,true);
+  assert.equal(rules.externalGapFillBeforeNewAuthoring,true);
+  assert.equal(rules.externalSourceAcquisitionOnlyAfterInternalReuseFailure,true);
+  assert.equal(rules.externalSourceSpeculativeDownloadForbidden,true);
+  assert.equal(rules.rawExternalAssetNotVerifiedCompanyAsset,true);
+  assert.equal(rules.nativeRuntimeVerificationBeforePromotion,true);
+  assert.equal(rules.unityRobloxNativeVariantsSeparated,true);
+  assert.equal(rules.robloxVerifiedMotionLibraryBeforeNewKeyframes,true);
+  assert.equal(assetPolicy.repositoryInventoryRequiredBeforeExternalAcquisition,true);
+  assert.equal(assetPolicy.assetLicenseAndProvenanceMustRemainVerified,true);
+  assert.equal(assetPolicy.externalSourceRequirements?.unknownOrNonCommercialForbidden,true);
+  assert.ok(assetPolicy.externalSourceRequirements?.allowedLicenses?.includes('CC0'));
+  assert.equal(assetPolicy.externalSourceRequirements?.originalSourceHashRequired,true);
+  assert.equal(assetPolicy.rawThirdPartyAssetMayNotBePromotedAsVerifiedCompanyAssetWithoutRuntimeConsumer,true);
+  const selector=fs.readFileSync(path.join(root,'assets/asset-selector.js'),'utf8');
+  assert.match(selector,/BLOCKED_LICENSE_WORDS/);
+  assert.match(selector,/blockedLicense\(/);
+  assert.match(selector,/licenseReviewRequired/);
+  assert.match(selector,/animationResourceReady/);
+  const architecture=JSON.parse(fs.readFileSync(path.join(root,paths[2]),'utf8'));
+  assert.equal(architecture.repository?.vibeExecution,'OWN_REPOSITORY_ONLY');
+});
