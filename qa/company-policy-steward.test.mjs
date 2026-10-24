@@ -545,3 +545,40 @@ test('Roblox asset library reuse and verified-license policy matches approved we
   const architecture=JSON.parse(fs.readFileSync(path.join(root,paths[2]),'utf8'));
   assert.equal(architecture.repository?.vibeExecution,'OWN_REPOSITORY_ONLY');
 });
+// 검증된 CC0 원본은 가벼운 게임 스타일 수정이 가능하며 변형본의 검증은 별도다.
+test('verified CC0 assets allow light adaptation without claiming native derivative QA',async()=>{
+  const {planVibeExternalCustomization}=await import('../assets/asset-selector.js');
+  const makeAsset=(id,styleFamily,license='CC0')=>({
+    id,family:'CHARACTER',styleFamily,downloaded:true,license,
+    path:'assets/roblox/creatures/'+id+'.glb',
+    sourceHash:'a'.repeat(64),sourceUrl:'https://example.com/source/'+id,
+    licenseEvidenceUrl:'https://example.com/license/'+id,
+    runtimeVerificationState:'VERIFIED_RUNTIME'
+  });
+  const plan=planVibeExternalCustomization({
+    request:'NPC character',target:'ROBLOX',gameId:'simple-rpg',
+    sourceRoot:'roblox-games/simple-rpg',
+    ownerScope:{status:'ACTIVE',existingPipelineOnly:true,activeTargets:['ROBLOX'],ownerHeldTargets:[]},
+    styleBible:{styleFamily:'soft fantasy'},approvedDesign:{visualIdentity:'soft fantasy'},
+    approvedDesignFingerprint:'b'.repeat(64),
+    assets:[makeAsset('same-style','soft fantasy'),makeAsset('other-style','hard scifi'),
+      makeAsset('blocked-license','soft fantasy','CC-BY-NC')]
+  });
+  assert.equal(plan.authorized,true);
+  assert.equal(plan.existingVerifiedSourceCount,2,'NC sources must be excluded');
+  const candidates=plan.references.flatMap(row=>row.sourceCandidates||[]);
+  const matching=candidates.find(row=>row.assetId==='same-style');
+  const mismatched=candidates.find(row=>row.assetId==='other-style');
+  assert.ok(matching&&mismatched,'verified candidates must be discoverable');
+  assert.equal(matching.derivative.cc0ReuseAdaptation.mode,'LIGHT_CC0_ADAPTATION');
+  assert.equal(matching.derivative.cc0ReuseAdaptation.deepRemakeMandatory,false);
+  assert.equal(matching.derivative.cc0ReuseAdaptation.sourceLicense,'CC0');
+  assert.equal(matching.derivative.cc0ReuseAdaptation.transformedArtifactRuntimeVerified,false);
+  assert.equal(matching.derivative.runtimeVerified,false);
+  assert.equal(matching.derivative.createdArtifact,false);
+  assert.equal(mismatched.derivative.cc0ReuseAdaptation.mode,'STYLE_COMPATIBILITY_REVIEW_REQUIRED');
+  assert.ok(!candidates.some(row=>row.assetId==='blocked-license'));
+  assert.equal(plan.appliedToGame,false);
+  assert.equal(plan.qaPassed,false);
+  assert.equal(plan.newQueueOrShadowPipelineCreated,false);
+});

@@ -423,6 +423,26 @@ export function planVibeExternalCustomization({
   // quarantined, research, or not-yet-runtime-verified sources as reusable game assets.
   const verifiedAssets=validAssets.filter(asset=>
     asset.verifiedCompanyReusable===true||asset.runtimeVerificationState==='VERIFIED_RUNTIME');
+  // 검증된 CC0 원본은 필요한 만큼만 수정해도 된다.
+  // 수정 범위가 작아도 게임별 소스 바인딩과 네이티브 QA 증거는 새로 요구한다.
+  const adaptationProfile=asset=>{
+    const desired=text(style.styleFamily||style.profileKey).toLowerCase();
+    const existing=text(asset.styleFamily||asset.styleProfile).toLowerCase();
+    return Object.freeze({
+      mode:desired&&existing&&desired===existing
+        ?'LIGHT_CC0_ADAPTATION':'STYLE_COMPATIBILITY_REVIEW_REQUIRED',
+      lightModificationPermitted:true,
+      permittedAdjustments:Object.freeze([
+        'PALETTE_TINT','MATERIAL_FINISH','SCALE_AND_PROPORTION',
+        'RIG_COMPATIBLE_MOTION_RETARGET','UI_LAYOUT_ADJUSTMENT'
+      ]),
+      deepRemakeMandatory:false,unmodifiedOriginalPreserved:true,
+      sourceLicense:'CC0',sourceHash:text(asset.sourceHash||asset.sha256||asset.contentHash),
+      gameStyleMustRemainConsistent:true,noBalanceHitboxSaveOrGameplayTimingMutation:true,
+      transformedArtifactRequiresNewHash:true,transformedArtifactRuntimeVerified:false,
+      originalRuntimeEvidenceIsNotDerivativeRuntimeEvidence:true
+    });
+  };
   const verifiedByFamily=new Map();
   for(const asset of verifiedAssets){
     const family=text(asset.family||asset.category).toUpperCase();
@@ -486,6 +506,7 @@ export function planVibeExternalCustomization({
           visualAxes:Object.freeze((Array.isArray(asset.adaptationAxes)?asset.adaptationAxes:approvedVisualAxes)
             .map(axis=>text(axis).toUpperCase()).filter(axis=>approvedVisualAxes.includes(axis))),
           existingSourceMustRemainImmutable:true,outputArtifactHashRequired:true,
+          cc0ReuseAdaptation:adaptationProfile(asset),
           actualNativeSourceBindingRequired:true,gameplayAuthority:false,
           runtimeVerified:false,createdArtifact:false
         })
