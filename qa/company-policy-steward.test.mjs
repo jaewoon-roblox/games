@@ -442,6 +442,18 @@ test('Roblox canonical autonomous plan reserves a real task and generates work i
     repoRoot:root,maxConcurrentTasks:8,queueMaxConcurrentTasks:8,
     planningBacklogTarget:6,planningBacklogMinimum:1
   });
+  // 관측 전용: 자동계획이 일반 코드 작업보다 자산 작업을 먼저 택하는지 실제 후보를 추적.
+  const {collectProjects,findSafeTasks,selectRobloxDevelopmentPortfolio}=await import('../tools/vibe2-auto-planner.mjs');
+  const projects=collectProjects({projects:[]},catalog,root,{items:[]});
+  const portfolio=selectRobloxDevelopmentPortfolio(projects,catalog,root);
+  const observed=portfolio.projects.map(project=>{
+    const candidates=findSafeTasks(project,root,{tasks:[]});
+    return {gameId:project.gameId,candidates:candidates.slice(0,12).map(task=>({
+      id:task.id,lane:task.executionLane,asset:task.assetProductionLane===true,
+      source:task.sourceRoot,status:task.status
+    }))};
+  });
+  console.log('ROBLOX_AUTONOMOUS_CANDIDATE_LANES='+JSON.stringify(observed));
   assert.equal(initial.planned,true,'canonical planner must create real tasks');
   assert.ok(initial.queue.tasks.length>0,'there must be runnable source tasks');
   const lane=initial.queue.tasks.some(t=>t.executionLane==='GAME_PRIMARY'&&t.status==='queued')
