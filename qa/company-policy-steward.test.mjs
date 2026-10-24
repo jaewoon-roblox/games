@@ -400,3 +400,30 @@ test('restored canonical runner module imports resolve without publishing or wri
     assert.ok(loaded&&typeof loaded==='object','canonical module load failed: '+relativePath);
   }
 });
+
+// 실제 로블록스 중앙정책 4문서 검증. 불일치/타 플랫폼 활성화는 반드시 차단한다.
+test('canonical Roblox worker context reads exactly four retained policy documents',async()=>{
+  const {validateSharedWorkerContext,RETAINED_DOCUMENTS}=await import('../tools/company-shared-context.mjs');
+  assert.equal(RETAINED_DOCUMENTS.length,4);
+  const status=validateSharedWorkerContext({root});
+  assert.equal(status.pass,true);
+  assert.equal(status.policyAuthorityVerified,false);
+  assert.equal(status.sourceWriteAuthorized,false);
+  assert.equal(status.releaseAuthorized,false);
+  assert.equal(status.hashes.directiveSha256,status.hashes.policySha256);
+  assert.throws(()=>validateSharedWorkerContext({root,expectedPolicySha256:'not-current'}),/POLICY_SHA_MISMATCH/);
+  const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'roblox-context-'));
+  try {
+    for(const relative of paths){
+      const dest=path.join(tmp,relative);
+      fs.mkdirSync(path.dirname(dest),{recursive:true});
+      fs.copyFileSync(path.join(root,relative),dest);
+    }
+    const docFile=path.join(tmp,paths[0]),policy=JSON.parse(fs.readFileSync(docFile,'utf8'));
+    policy.developmentAccess.WEB='ALWAYS_ALLOWED';
+    fs.writeFileSync(docFile,JSON.stringify(policy));
+    assert.throws(()=>validateSharedWorkerContext({root:tmp}),/ROBLOX_CANONICAL_POLICY_CONTRACT_INVALID/);
+    fs.unlinkSync(path.join(tmp,paths[3]));
+    assert.throws(()=>validateSharedWorkerContext({root:tmp}),/SECURITY_DOCUMENT_MISSING_OR_INVALID/);
+  }finally{fs.rmSync(tmp,{recursive:true,force:true});}
+});

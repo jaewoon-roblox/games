@@ -4,76 +4,79 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 
+// 파일명: tools/company-shared-context.mjs
+// 메인: 로블록스 자체 정책 정본 4문서 해시 및 fail-closed 검증.
+// 무결성 검사 통과는 소스 수정·출시 승인 증거가 아니다.
 export const RETAINED_DOCUMENTS = Object.freeze([
-  ['directive','company-directive.json',null,'MINIMAL_SUMMARY_NOT_REPLACEMENT_POLICY'],
+  ['policy','company-learning/platform-release-roadmap.json','MACHINE_EXECUTION_CONTRACT','OWNER_DIRECT_LOCKED'],
   ['log','company-learning/company-log-map.json','MACHINE_EXECUTION_LOG_MAP','MINIMAL_RETAINED_SUMMARY_NON_EXECUTABLE'],
   ['architecture','company-learning/company-architecture-map.json','MACHINE_EXECUTION_ARCHITECTURE_MAP','MINIMAL_SUMMARY_NOT_EXECUTION_POLICY'],
   ['security','company-learning/security-immune-system.json','OWNER_DIRECTIVE_2026-09-19','MINIMAL_SUMMARY_NOT_SECURITY_VERIFICATION']
 ]);
 const hash = contents => crypto.createHash('sha256').update(contents).digest('hex');
 const error = code => { throw new Error('WORKER_CONTEXT_SYNC_FAILED:' + code); };
+
 function readRetained(root, key, relative, authority, status) {
   let contents, data;
   try {
-    contents = fs.readFileSync(path.join(root,relative),'utf8');
-    data = JSON.parse(contents);
+    contents=fs.readFileSync(path.join(root,relative),'utf8');
+    data=JSON.parse(contents);
   } catch { return error(key.toUpperCase()+'_DOCUMENT_MISSING_OR_INVALID'); }
-  const fullDirective=key==='directive' && data?.authority==='MACHINE_EXECUTION_CONTRACT'
-    && data?.policyDocument==='company-learning/platform-release-roadmap.json'
-    && data?.documentationSynchronization?.centralPolicyPath===data.policyDocument;
-  if (!fullDirective && [...contents].length >= 1000) error(key.toUpperCase()+'_DOCUMENT_TOO_LARGE');
-  if (!Number.isInteger(data.version) || data.version < 1 ||
-      (!fullDirective && data.status !== status) ||
-      (authority && data.authority !== authority) ||
-      (data.sourceOfTruth != null && data.sourceOfTruth !== relative)) {
+  if(key!=='policy' && [...contents].length >= 1000)
+    error(key.toUpperCase()+'_DOCUMENT_TOO_LARGE');
+  if(!Number.isInteger(data.version)||data.version<1||
+      data.status!==status||data.authority!==authority||
+      (data.sourceOfTruth!=null&&data.sourceOfTruth!==relative))
     error(key.toUpperCase()+'_DOCUMENT_CONTRACT_INVALID');
-  }
-  return {data, sha256:hash(contents),format:fullDirective?'FULL_MACHINE_DIRECTIVE':'MINIMAL_SUMMARY'};
+  return {data,sha256:hash(contents),format:key==='policy'?'CANONICAL_MACHINE_POLICY':'MINIMAL_SUMMARY'};
 }
-export function validateSharedWorkerContext({root=process.cwd(),expectedDirectiveSha256,expectedLogSha256,expectedArchitectureSha256,expectedSecuritySha256}={}) {
-  // This is a four-document integrity check only. The separate canonical
-  // roadmap is allowed to exist; neither its presence nor this check grants approval.
-  const roadmapPath=path.join(root,'company-learning/platform-release-roadmap.json');
-  const roadmapPresent=fs.existsSync(roadmapPath);
-  const docs={}, hashes={}, formats={};
-  for(const [key,relative,authority,status] of RETAINED_DOCUMENTS) {
+export function validateSharedWorkerContext({
+  root=process.cwd(),expectedDirectiveSha256,expectedPolicySha256,
+  expectedLogSha256,expectedArchitectureSha256,expectedSecuritySha256
+}={}) {
+  const docs={},hashes={},formats={};
+  for(const [key,relative,authority,status] of RETAINED_DOCUMENTS){
     const item=readRetained(root,key,relative,authority,status);
     docs[key]=item.data;
     hashes[key+'Sha256']=item.sha256;
     formats[key]=item.format;
   }
-  const directive=docs.directive, log=docs.log, architecture=docs.architecture, security=docs.security;
-  if (formats.directive==='MINIMAL_SUMMARY' &&
-      (directive.policyDocument !== null ||
-      directive.documentationSynchronization?.centralPolicyPath !== null ||
-      directive.execution?.centralPolicyMissing !== 'FAIL_CLOSED')) {
-    error('OWNER_POLICY_REMOVAL_CONTRACT_INVALID');
+  const {policy,log,architecture,security}=docs;
+  if(policy.policySource!=='company-learning/platform-release-roadmap.json'||
+      policy.machineSourceOfTruth!=='company-learning/platform-release-roadmap.json'||
+      !policy.ownerCanonicalRules||!policy.ownerCanonicalRules.constitutionalBinding||
+      policy.developmentAccess?.ROBLOX!=='ALWAYS_ALLOWED'||
+      !['WEB','UNITY','FORTNITE_UEFN','UNITY_WEB','UNITY_ANDROID'].every(
+        target=>policy.developmentAccess?.[target]==='OWNER_HOLD'))
+    error('ROBLOX_CANONICAL_POLICY_CONTRACT_INVALID');
+  if(log.requiredForAllWorkers!==false||
+      log.retained?.primaryLog!=='GITHUB_ACTIONS_JOB_LOG'||
+      log.retained?.unknownOrMissingPolicy!=='FAIL_CLOSED')
+    error('LOG_DOCUMENT_CONTRACT_INVALID');
+  if(architecture.centralPolicy!==null||
+      architecture.repository?.fullName!=='jaewoon-roblox/games'||
+      architecture.repository?.developmentPlatform!=='ROBLOX'||
+      architecture.repository?.vibeExecution!=='OWN_REPOSITORY_ONLY'||
+      architecture.branches?.main?.directGameWorkerWrite!==false||
+      architecture.constitutionalEnforcement?.mode!=='FAIL_CLOSED'||
+      architecture.release!=='UNVERIFIED_OR_MISSING_POLICY_MUST_NOT_PASS')
+    error('ARCHITECTURE_DOCUMENT_CONTRACT_INVALID');
+  if(security.policyFile!=='company-learning/security-immune-system.json'||
+      security.defaultTrust!=='DENY_OR_QUARANTINE_UNTIL_VERIFIED'||
+      security.enforcement?.unverified!=='BLOCK')
+    error('SECURITY_DOCUMENT_CONTRACT_INVALID');
+  const expected={policy:expectedPolicySha256??expectedDirectiveSha256,
+    log:expectedLogSha256,architecture:expectedArchitectureSha256,security:expectedSecuritySha256};
+  for(const [key,sha] of Object.entries(expected)){
+    if(sha!==undefined&&sha!==hashes[key+'Sha256'])
+      error(key.toUpperCase()+'_SHA_MISMATCH');
   }
-  if (formats.directive==='FULL_MACHINE_DIRECTIVE' && !roadmapPresent) {
-    error('CANONICAL_ROADMAP_REFERENCED_BUT_MISSING');
-  }
-  if (log.requiredForAllWorkers !== false ||
-      log.retained?.primaryLog !== 'GITHUB_ACTIONS_JOB_LOG' ||
-      log.retained?.unknownOrMissingPolicy !== 'FAIL_CLOSED') error('LOG_DOCUMENT_CONTRACT_INVALID');
-  if (architecture.centralPolicy !== null ||
-      architecture.branches?.main?.directGameWorkerWrite !== false ||
-      architecture.constitutionalEnforcement?.mode !== 'FAIL_CLOSED' ||
-      architecture.release !== 'UNVERIFIED_OR_MISSING_POLICY_MUST_NOT_PASS') error('ARCHITECTURE_DOCUMENT_CONTRACT_INVALID');
-  if (security.policyFile !== 'company-learning/security-immune-system.json' ||
-      security.defaultTrust !== 'DENY_OR_QUARANTINE_UNTIL_VERIFIED' ||
-      security.enforcement?.unverified !== 'BLOCK') error('SECURITY_DOCUMENT_CONTRACT_INVALID');
-  const expected = {
-    directive:expectedDirectiveSha256,log:expectedLogSha256,
-    architecture:expectedArchitectureSha256,security:expectedSecuritySha256
-  };
-  for(const [key,sha] of Object.entries(expected)) {
-    if(sha !== undefined && sha !== hashes[key+'Sha256']) error(key.toUpperCase()+'_SHA_MISMATCH');
-  }
+  // 기존 실행기 입출력 이름을 유지하되 digest의 실체는 동일한 중앙 정책 원본이다.
+  hashes.directiveSha256=hashes.policySha256;
   return {
-    pass:true, scope:'RETAINED_FOUR_DOCUMENT_INTEGRITY_ONLY',
-    policyAuthorityVerified:false, sourceWriteAuthorized:false,
-    releaseAuthorized:false, canonicalRoadmapPresent:roadmapPresent,
-    hashes, documentFormats:formats,
+    pass:true,scope:'ROBLOX_CANONICAL_FOUR_DOCUMENT_INTEGRITY_ONLY',
+    policyAuthorityVerified:false,sourceWriteAuthorized:false,releaseAuthorized:false,
+    canonicalRoadmapPresent:true,hashes,documentFormats:formats,
     documentVersions:Object.fromEntries(RETAINED_DOCUMENTS.map(([key])=>[key,docs[key].version]))
   };
 }
@@ -182,7 +185,7 @@ if(process.argv[1]===fileURLToPath(import.meta.url)) {
     if(output) fs.writeFileSync(output.slice('--output='.length),JSON.stringify(result,null,2)+'\n');
     console.log('WORKER_CONTEXT_SCOPE='+result.scope);
     console.log('WORKER_CONTEXT_POLICY_AUTHORITY=UNVERIFIED');
-    for(const key of ['directive','log','architecture','security']) {
+    for(const key of ['policy','log','architecture','security']) {
       console.log('WORKER_CONTEXT_'+key.toUpperCase()+'_SHA256='+result.hashes[key+'Sha256']);
     }
     console.log('WORKER_CONTEXT_SYNC=INTEGRITY_ONLY');
