@@ -490,14 +490,14 @@ test('Roblox canonical autonomous plan reserves a real task and generates work i
 });
 
 // 로블 조직 기존 설계·학습·복구 실행기 원본 모듈의 실제 ES import 검증.
-test('restored canonical design recovery and learning worker imports resolve',async()=>{
+test('restored canonical runtime modules load and side-effecting design CLIs parse',async()=>{
   // 설계기와 동일한 정본 정책 경로를 제공한다. 정책 누락/위조는 허용하지 않는다.
   const prior=process.env.COMPANY_VERIFIED_DESIGN_POLICY_PATH;
   process.env.COMPANY_VERIFIED_DESIGN_POLICY_PATH=path.join(root,paths[0]);
   try {
   for(const name of ["vibe2-verified-design-handoff","vibe2-post-release-focus","vibe2-authorized-source-memory","vibe2-release-dispatch-recovery","vibe2-release-baseline-queue","vibe2-code-pattern-ingest","free-budget-telemetry","vibe2-practice-distillation","vibe2-learning-practice-worker","company-design-cycle","company-baseline-gate","company-design-seed-normalize","company-strict-production-review","owner-design-reset","artbook-fact-pack","production-classification","vibe2-training-sample"]){
     const file='../tools/'+name+'.mjs';
-    if(name==='artbook-fact-pack'||name==='company-design-cycle'){
+    if(['artbook-fact-pack','company-design-cycle','company-baseline-gate','company-design-seed-normalize','company-strict-production-review','owner-design-reset','production-classification'].includes(name)){
       // 원본 CLI는 import 즉시 ARTBOOK_GAME_ID를 검사하고 종료하도록 설계됐다.
       // 실행 없이 문법 검사하되, 환경을 위조해 완료 증거를 만들지 않는다.
       const {execFileSync}=await import('node:child_process');
