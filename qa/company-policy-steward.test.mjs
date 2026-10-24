@@ -9,7 +9,7 @@ import {fileURLToPath} from 'node:url';
 import {auditFourPolicyDocuments,resolveActiveOwnerPolicy} from '../tools/company-policy-steward.mjs';
 import {ownerDevelopmentHeld} from '../tools/vibe2-queue-control.mjs';
 import {loadCentralPolicySnapshot} from '../tools/vibe2-central-work-contract.mjs';
-import {selectRobloxDevelopmentPortfolio,planVibe2AutonomousTasks} from '../tools/vibe2-auto-planner.mjs';
+import {selectRobloxDevelopmentPortfolio,planVibe2AutonomousTasks,enqueueOwnerRobloxOnePatch} from '../tools/vibe2-auto-planner.mjs';
 
 // 메인
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -296,4 +296,57 @@ test('Roblox planner keeps selection and existing runtime pressure without per-g
   console.log('ROBLOX_PORTFOLIO_PLAN_BACKLOG='+JSON.stringify({capacity:result.planningBacklog?.capacity,current:result.planningBacklog?.current,target:result.planningBacklog?.target,sourceReadyCount:result.planningBacklog?.robloxPortfolio?.sourceReadyCount,missing:result.planningBacklog?.robloxPortfolio?.sourceBlockedGameIds?.length}));
   console.log('ROBLOX_PORTFOLIO_PLANNED_TASKS='+primary.length);
   console.log('ROBLOX_PORTFOLIO_REFILL_ACTIVE_TASKS='+activePrimary.length);
+});
+
+// 로블 조직 한방패치: 웹 조직과 동일한 접수 간소화, 안전 게이트는 유지.
+test('owner onepatch enters existing Roblox queue, merges build-up, and cannot touch foreign files',()=>{
+  const catalog=JSON.parse(fs.readFileSync(path.join(root,'game-catalog.json'),'utf8'));
+  const policy=JSON.parse(fs.readFileSync(path.join(root,paths[0]),'utf8'));
+  const gameId='simple-rpg',sourceRoot='roblox-games/'+gameId;
+  const request={gameId,goal:'기존 캐릭터 움직임과 화면 UI를 함께 자연스럽게 수정',requestId:'1234567',
+    files:'client/Game.client.luau;shared/GameConfig.luau'};
+  const before=fs.readFileSync(path.join(root,sourceRoot,'client/Game.client.luau'),'utf8');
+  const created=enqueueOwnerRobloxOnePatch({queue:{tasks:[]},catalog,request,repoRoot:root,policy});
+  assert.equal(created.added,true);
+  assert.equal(created.queue.tasks.length,1);
+  assert.equal(created.queue.tasks[0].target,'roblox');
+  assert.equal(created.queue.tasks[0].executionLane,'GAME_PRIMARY');
+  assert.equal(created.queue.tasks[0].responsibleFiles.length,2);
+  assert.ok(created.queue.tasks[0].goal.includes('기존 F0~F9/보안/런타임/출시 검증을 유지한다'));
+  assert.equal(fs.readFileSync(path.join(root,sourceRoot,'client/Game.client.luau'),'utf8'),before);
+  const replay=enqueueOwnerRobloxOnePatch({queue:created.queue,catalog,request,repoRoot:root,policy});
+  assert.equal(replay.added,false);
+  assert.equal(replay.queue.tasks.length,1);
+  const existing={id:'current-build-up',gameId,target:'roblox',sourceRoot,status:'queued',
+    buildUpDirectiveId:'verified-existing-build-up',goal:'현재 빌드업 단계',responsibleFiles:[sourceRoot+'/server/Game.server.luau'],evidence:[]};
+  const merged=enqueueOwnerRobloxOnePatch({queue:{tasks:[existing]},catalog,request,repoRoot:root,policy});
+  assert.equal(merged.merged,true);
+  assert.equal(merged.queue.tasks.length,1);
+  assert.equal(merged.queue.tasks[0].id,existing.id);
+  assert.equal(merged.queue.tasks[0].ownerDirective,true);
+  assert.ok(merged.queue.tasks[0].responsibleFiles.includes(sourceRoot+'/client/Game.client.luau'));
+  for(const file of ['../web-games/foo/index.html','../../package.json','/tmp/escape','web-games/other/index.html']){
+    assert.throws(()=>enqueueOwnerRobloxOnePatch({queue:{tasks:[]},catalog,
+      request:{...request,files:file,requestId:'8765432'},repoRoot:root,policy}),/ROBLOX_ONEPATCH_/);
+  }
+  assert.throws(()=>enqueueOwnerRobloxOnePatch({queue:{tasks:[]},catalog,request,repoRoot:root,
+    policy:{...policy,developmentAccess:{...policy.developmentAccess,ROBLOX:'OWNER_HOLD'}}}),/ROBLOX_ONEPATCH_CENTRAL_POLICY_NOT_AUTHORIZED/);
+});
+test('Roblox F0 then private deploy then post-deploy F1-F9 QA precedes canonical final publish',()=>{
+  const policy=JSON.parse(fs.readFileSync(path.join(root,paths[0]),'utf8'));
+  const sequence=policy.finalDevelopmentLock?.sequenceLock?.candidateOrderMustRemain||[];
+  const index=name=>sequence.indexOf(name);
+  assert.equal(index('F0_SOURCE_PREFLIGHT_PASS'),0);
+  assert.equal(index('PRIVATE_RUNTIME_CANDIDATE_DEPLOY'),1);
+  assert.ok(index('F1_SERVER_BOOT_PASS')>index('PRIVATE_RUNTIME_CANDIDATE_DEPLOY'));
+  assert.ok(index('F9_RELEASE_REGRESSION_PASS')>index('F1_SERVER_BOOT_PASS'));
+  assert.ok(index('INTERNAL_PLATFORM_RELEASE')>index('F9_RELEASE_REGRESSION_PASS'));
+  assert.equal(policy.finalDevelopmentLock.sequenceLock.status,'LOCKED');
+  const workflow=fs.readFileSync(path.join(root,'.github/workflows/vibe2-continuous-core.yml'),'utf8');
+  assert.match(workflow,/roblox_game:/);
+  assert.match(workflow,/VIBE2_ROBLOX_ONEPATCH_GOAL:/);
+  assert.match(workflow,/ROBLOX_ONEPATCH_GAME_PRIMARY_LANE_REQUIRED/);
+  assert.match(workflow,/vibe2-candidate-release\.yml\/dispatches/);
+  assert.equal(policy.robloxDevelopmentInvestment.activePortfolio.onePatchRelease,
+    'AFTER_ALL_CANONICAL_VERIFIED_GATES_ONLY');
 });
