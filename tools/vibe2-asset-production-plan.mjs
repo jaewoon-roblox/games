@@ -4820,12 +4820,18 @@ export function buildVibeAssetProductionPlan({
     ...inferStyleExpressionOverridesFromText(request),
     ...(task.styleExpressionOverrides||task.styleExpression?.axes||{})
   };
-  // 자산 전용 증류 게이트는 실제 자산 제작 책임 작업에만 적용한다.
-  // 게임 기본 코드/저장/전투 작업은 기존 게임 QA와 소스 계약으로 검증한다.
+  // 소유자 정본 정책: 외부 학습의 검증된 적용 없이는 Roblox 게임 소스 수정도,
+  // 자산 제작도 실행 불가. CC0 라이선스와 소스 검증은 학습 검증의 대체물이 아니다.
+  const externalLearningRule=readJson(path.join(repoRoot,
+    'company-learning/platform-release-roadmap.json'),{})
+    ?.developmentLifecycleMachine?.machineOnlyProjectContinuation?.verifiedLearningMaxUse
+    ?.externalVerifiedBlackBoxFirstApplication;
+  const protectedNative=['roblox','unity','web'].includes(resolvedTarget);
   const assetLearningRequired=clean(executionLane).toLowerCase()==='asset-development'
-    ||task?.assetProductionLane===true
-    ||task?.motionRepairWorkUnit?.scope==='INTERNAL_ASSET_LIBRARY'
-    ||Boolean(task?.graphicsReplacementContract);
+    ||protectedNative;
+  if(assetLearningRequired&&externalLearningRule?.required===false){
+    throw new Error('EXTERNAL_BLACK_BOX_OWNER_POLICY_WEAKENED');
+  }
   const verifiedCommercialReuse=freezeList((verifiedLearning?.playbookReuse||[])
     .filter(row=>row?.verified===true&&clean(row?.authority)==='verified-task-playbook'&&clean(row?.id).startsWith('external-black-box-'))
     .map(row=>freeze({

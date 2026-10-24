@@ -505,10 +505,14 @@ test('Roblox canonical autonomous plan reserves a real task and generates work i
     reserved:gameBatch.reserved,run:gameOrder.run,reason:gameOrder.reason||null,
     taskId:gameBatch.tasks[0].id,target:gameOrder.target||null
   }));
-  assert.equal(gameOrder.run,true,'owner game-primary work-order blocked: '+String(gameOrder.reason));
-  assert.equal(gameOrder.target,'roblox');
-  assert.equal(gameOrder.workerPolicy?.directMainWrite,false);
-  assert.equal(gameOrder.deployment?.requiresVerifiedQA,true);
+  const learningRule=policy.developmentLifecycleMachine?.machineOnlyProjectContinuation
+    ?.verifiedLearningMaxUse?.externalVerifiedBlackBoxFirstApplication;
+  assert.equal(learningRule?.required,true);
+  assert.equal(learningRule?.robloxExistingSourceMaintenanceWithoutVerifiedExternalLearningForbidden,true);
+  assert.equal(learningRule?.internalAssetProductionMustConsumeVerifiedCommercialDistillationFirst,true);
+  assert.equal(gameOrder.run,false,'unverified external learning must never authorize Roblox source write');
+  assert.equal(gameOrder.reason,'VERIFIED_COMMERCIAL_BLACK_BOX_DISTILLATION_REQUIRED_FOR_INTERNAL_ASSET_PRODUCTION');
+  assert.equal(gameOrder.selectedTask?.target,'roblox');
 });
 
 // 로블 조직 기존 설계·학습·복구 실행기 원본 모듈의 실제 ES import 검증.
