@@ -619,3 +619,13 @@ test('Roblox independent CC0 license ledger exists but cannot invent verificatio
   assert.equal(ledger.policy?.onDemandAcquisitionOnlyAfterVerifiedInventoryGap,true);
   assert.deepEqual(ledger.entries,[],'unverified Roblox asset must not be promoted to a licensed source');
 });
+
+// Original company designer runs only Roblox seeds against this repository's native policy.
+test('original design runtime source excludes held platform seeds and absent web directive',()=>{
+  const source=fs.readFileSync(path.join(root,'.github/workflows/company-seed-design-runtime.yml'),'utf8');
+  assert.doesNotMatch(source,/['"]company-directive\\.json['"]/);
+  assert.match(source,/ROBLOX_DESIGN_OWNER_POLICY_UNVERIFIED/);
+  assert.match(source,/ROBLOX_ONLY_OWNER_POLICY/);
+  assert.match(source,/const active=eligible\\.filter\\(seed=>String\\(seed\\?\\.INITIAL_TARGET_PLATFORM/);
+  assert.match(source,/HELD_FOREIGN_OR_UNDECLARED/);
+});
