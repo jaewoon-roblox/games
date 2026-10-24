@@ -9,6 +9,7 @@ import {fileURLToPath} from 'node:url';
 import {auditFourPolicyDocuments,resolveActiveOwnerPolicy} from '../tools/company-policy-steward.mjs';
 import {ownerDevelopmentHeld} from '../tools/vibe2-queue-control.mjs';
 import {loadCentralPolicySnapshot} from '../tools/vibe2-central-work-contract.mjs';
+import {selectRobloxDevelopmentPortfolio} from '../tools/vibe2-auto-planner.mjs';
 
 // 메인
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -222,3 +223,38 @@ for(const platform of ['WEB','ROBLOX'])test(platform+' repository confines Vibe 
   scope.repository.sharedQueue=true;
   assert.throws(()=>resolveActiveOwnerPolicy(policy,{allowMissing:true}),/REPOSITORY_SCOPE_INVALID/);
 });
+
+// 로블록스 개발은 전체 46개를 기계적으로 예약하지 않고 실제 소스 준비도와 오너 순서를 검증한다.
+test('Roblox organization admits only six source-ready prioritized games without changing the catalog',()=>{
+  const catalog=JSON.parse(fs.readFileSync(path.join(root,'game-catalog.json'),'utf8'));
+  const policy=JSON.parse(fs.readFileSync(path.join(root,paths[0]),'utf8'));
+  const before=fs.readFileSync(path.join(root,'game-catalog.json'),'utf8');
+  const projects=catalog.games.map(game=>({
+    gameId:game.id,engine:'roblox',projectPath:'roblox-games/'+game.id,
+    releaseState:game.productionClass==='DEVELOPMENT_CONFIRMED'?'development-confirmed':'other'
+  }));
+  const result=selectRobloxDevelopmentPortfolio(projects,catalog,root);
+  assert.equal(result.enabled,true);
+  assert.equal(catalog.games.length,46);
+  assert.equal(result.selectedGameIds.length,policy.robloxDevelopmentInvestment.activePortfolio.activeGameTarget);
+  assert.deepEqual(result.selectedGameIds,policy.robloxDevelopmentInvestment.activePortfolio.preferredGameIds);
+  assert.equal(result.maxQueuedDevelopmentTasks,12);
+  assert.ok(result.sourceReadyGameIds.length>result.selectedGameIds.length);
+  assert.ok(result.sourceReadyGameIds.length<catalog.games.length);
+  assert.ok(result.sourceBlockedGameIds.includes('ocean-voyage'));
+  assert.equal(result.projects.length,6);
+  assert.ok(result.projects.every(project=>project.engine==='roblox'));
+  assert.equal(fs.readFileSync(path.join(root,'game-catalog.json'),'utf8'),before);
+  const foreign={...projects[0],engine:'web',projectPath:'web-games/'+projects[0].gameId};
+  assert.equal(selectRobloxDevelopmentPortfolio([foreign],catalog,root).projects.length,0);
+});
+test('Roblox portfolio selector never restricts unrelated repository architecture',()=>fixture(tmp=>{
+  const file=path.join(tmp,'company-learning/company-architecture-map.json');
+  const architecture=JSON.parse(fs.readFileSync(file,'utf8'));
+  architecture.repository.fullName='hans1177/jaewoon-games';
+  fs.writeFileSync(file,JSON.stringify(architecture));
+  const projects=[{gameId:'simple-rpg',engine:'roblox',projectPath:'roblox-games/simple-rpg',releaseState:'development-confirmed'}];
+  const result=selectRobloxDevelopmentPortfolio(projects,{games:[{id:'simple-rpg',productionClass:'DEVELOPMENT_CONFIRMED',lifecycleState:'ACTIVE'}]},tmp);
+  assert.equal(result.enabled,false);
+  assert.equal(result.projects.length,1);
+}));
