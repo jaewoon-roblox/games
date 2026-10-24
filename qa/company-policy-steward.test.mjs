@@ -659,3 +659,12 @@ test('canonical recovery pipeline imports and rejects unverified learning promot
   assert.equal(distilled.stats.internalRecoveryAdded,0);
   assert.equal(distilled.stats.externalAdvisoryAdded,0);
 });
+
+test('Roblox 24H canonical planner excludes held Web game workers',()=>{
+  const script=fs.readFileSync(path.join(root,'.github/workflows/vibe2-24h-runner.yml'),'utf8');
+  for(const forbidden of ["tools/vibe2-web-experience-ingest.mjs","tools/company-development-web-gameplay-validation.mjs","qa/company-development-web-runtime.test.mjs"]){
+    assert.equal(script.includes(forbidden),false,'Web-only game worker must not be invoked: '+forbidden);
+  }
+  assert.ok(script.includes('node /tmp/vibe2-main/tools/vibe2-auto-planner.mjs'));
+  assert.ok(script.includes('node --check tools/vibe2-source-worker.mjs'));
+});

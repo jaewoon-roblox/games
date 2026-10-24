@@ -11,7 +11,6 @@ on:
       - '.github/workflows/vibe2-roblox-candidate-runtime.yml'
       - 'tools/vibe2-roblox-skyline-runtime-smoke.mjs'
       - 'tools/vibe2-authorized-source-memory.mjs'
-      - 'tools/vibe2-web-experience-ingest.mjs'
       - 'tools/company-system-ai-external-learning-feed.mjs'
       - 'company-learning/assistant-vibe-coauthoring-log.json'
       - 'tools/vibe2-external-ai-distillation.mjs'
@@ -35,7 +34,6 @@ on:
       - 'tools/vibe3-roblox-distillation.mjs'
       - 'tools/vibe3-roblox-learning-context.mjs'
       - 'tools/vibe2-incremental-qa.mjs'
-      - 'tools/company-development-web-gameplay-validation.mjs'
       - 'tools/vibe2-learning-motor.mjs'
       - 'tools/vibe2-practice-distillation.mjs'
       - 'tools/vibe2-design-intelligence.mjs'
@@ -472,7 +470,6 @@ jobs:
               node --check tools/vibe3-roblox-distillation.mjs
               node --check tools/vibe3-roblox-learning-context.mjs
               node --check tools/vibe2-incremental-qa.mjs
-              node --check tools/company-development-web-gameplay-validation.mjs
               node --check tools/vibe2-practice-distillation.mjs
               node --check tools/vibe2-design-intelligence.mjs
               node --check tools/vibe2-verified-design-handoff.mjs
@@ -512,7 +509,6 @@ jobs:
                 node --test qa/vibe-studio-asset-universe.test.mjs 2>&1 | tee /tmp/vibe2-asset-library-qa.log
               fi
                 node --test qa/vibe3-roblox-distillation.test.mjs
-                node --test qa/company-development-web-runtime.test.mjs
               fi
 
               # Rule 4 final-stage neural expansion readiness is derived from direct targeted QA.
@@ -706,13 +702,6 @@ jobs:
             else
               echo 'VIBE2_QUEUE_STORAGE_EARLY_CHECKPOINT=UNCHANGED'
             fi
-
-            node --check /tmp/vibe2-main/tools/vibe2-web-experience-ingest.mjs
-            node /tmp/vibe2-main/tools/vibe2-web-experience-ingest.mjs \
-              --queue=/tmp/vibe2-company-runtime-queue.json \
-              --experience=.vibe2/experience.json \
-              --external-ai-distilled=.vibe2/external-ai-distilled-knowledge.json \
-              --company-runtime-ref=origin/company-runtime | tee /tmp/vibe2-web-experience-ingest.log
 
             node --check /tmp/vibe2-main/tools/vibe2-code-pattern-ingest.mjs
             node /tmp/vibe2-main/tools/vibe2-code-pattern-ingest.mjs \
