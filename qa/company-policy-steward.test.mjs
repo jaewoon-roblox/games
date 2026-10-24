@@ -427,3 +427,44 @@ test('canonical Roblox worker context reads exactly four retained policy documen
     assert.throws(()=>validateSharedWorkerContext({root:tmp}),/SECURITY_DOCUMENT_MISSING_OR_INVALID/);
   }finally{fs.rmSync(tmp,{recursive:true,force:true});}
 });
+
+// 파일명: qa/company-policy-steward.test.mjs
+// 메인: 실제 로블록스 계획-예약-작업지시서 함수를 연결하는 무수정 회귀 검증.
+// 원격 GitHub Actions 작업자/게임 서버/게시 검증과 구별한다.
+test('Roblox canonical autonomous plan reserves a real task and generates work instruction',async()=>{
+  const {reserveVibeTaskBatch}=await import('../tools/vibe2-queue-control.mjs');
+  const {buildVibeContinuousWorkOrder}=await import('../tools/vibe2-continuous-runner.mjs');
+  const catalog=JSON.parse(fs.readFileSync(path.join(root,'game-catalog.json'),'utf8'));
+  const policy=JSON.parse(fs.readFileSync(path.join(root,paths[0]),'utf8'));
+  const runtime=JSON.parse(fs.readFileSync(path.join(root,'vibe2-runtime.json'),'utf8'));
+  const initial=planVibe2AutonomousTasks({
+    catalog,status:{projects:[]},developmentQueue:{items:[]},queue:{tasks:[]},
+    repoRoot:root,maxConcurrentTasks:8,queueMaxConcurrentTasks:8,
+    planningBacklogTarget:6,planningBacklogMinimum:1
+  });
+  assert.equal(initial.planned,true,'canonical planner must create real tasks');
+  assert.ok(initial.queue.tasks.length>0,'there must be runnable source tasks');
+  const lane=initial.queue.tasks.some(t=>t.executionLane==='GAME_PRIMARY'&&t.status==='queued')
+    ? 'game-primary':'asset-development';
+  const batch=reserveVibeTaskBatch(initial.queue,{
+    maxConcurrentTasks:2,lane,policy,
+    reservation:{reservationRunId:'roblox-pr-local-check',reservationRunAttempt:1}
+  });
+  assert.ok(batch.reserved>0,'canonical queue must reserve at least one real task');
+  assert.ok(batch.tasks.every(t=>t.target==='roblox'));
+  assert.ok(batch.matrix.length>0,'canonical worker matrix must exist');
+  const task=batch.tasks[0];
+  const order=buildVibeContinuousWorkOrder({
+    runtime,queue:batch.queue,experience:{records:[]},taskId:task.id,
+    centralPolicySnapshot:null,centralPolicyLiveRef:'origin/main'
+  });
+  console.log('ROBLOX_CANONICAL_PLAN_RESERVE_ORDER='+JSON.stringify({
+    queued:initial.queue.tasks.length,lane,reserved:batch.reserved,taskId:task.id,
+    gameId:task.gameId,workOrderRun:order.run,workOrderReason:order.reason||null,
+    target:order.target||null
+  }));
+  assert.equal(order.run,true,'canonical work-order blocked: '+String(order.reason));
+  assert.equal(order.target,'roblox');
+  assert.equal(order.workerPolicy?.directMainWrite,false);
+  assert.equal(order.deployment?.requiresVerifiedQA,true);
+});
