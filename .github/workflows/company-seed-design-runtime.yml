@@ -2,6 +2,8 @@
 name: Company Seed DESIGN_ONLY Runtime
 
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       game_id:
@@ -54,8 +56,55 @@ env:
   COMPANY_RUNTIME_BRANCH: company-runtime
 
 jobs:
+  # 로블록스 조직 PR 검증: 기존 실행 파이프라인은 main 전까지 절대 기동하지 않는다.
+  independent-readiness:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate existing constitutional and policy checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tools/company-constitution-enforcer.mjs
+          node --check tools/company-policy-steward.mjs
+          node --check tools/vibe2-auto-planner.mjs
+          node --check tools/vibe2-source-worker.mjs
+          node tools/company-constitution-enforcer.mjs --phase=worker-before-source-write
+          node --test qa/company-policy-steward.test.mjs
+      - name: Assert Roblox ownership without fabricating runtime PASS
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          const roadmap=JSON.parse(fs.readFileSync('company-learning/platform-release-roadmap.json','utf8'));
+          const architecture=JSON.parse(fs.readFileSync('company-learning/company-architecture-map.json','utf8'));
+          const catalog=JSON.parse(fs.readFileSync('game-catalog.json','utf8'));
+          assert.equal(process.env.GITHUB_REPOSITORY,'jaewoon-roblox/games');
+          assert.equal(architecture.repository?.fullName,'jaewoon-roblox/games');
+          assert.equal(architecture.repository?.developmentPlatform,'ROBLOX');
+          assert.equal(architecture.repository?.vibeExecution,'OWN_REPOSITORY_ONLY');
+          assert.equal(roadmap.developmentAccess?.ROBLOX,'ALWAYS_ALLOWED');
+          assert.equal(roadmap.developmentAccess?.WEB,'OWNER_HOLD');
+          assert.ok(Array.isArray(catalog.games)&&catalog.games.length>0);
+          assert.ok(catalog.games.every(game=>!game.platform||game.platform==='ROBLOX'));
+          console.log('ROBLOX_ORGANIZATION_STATIC_BOUNDARY=PASS');
+          console.log('ROBLOX_RUNNER_AND_PUBLISH_EVIDENCE=UNVERIFIED');
+          NODE
+
   # 메인: 대상 선정부터 바로 시작한다. 다른 개발 작업의 관측 결과는 설계 착수 조건이 아니다.
   resolve-seed-targets:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-slim
     timeout-minutes: 10
     env:
