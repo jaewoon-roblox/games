@@ -282,4 +282,20 @@ test('Roblox planner limits actual new task reservations by game and portfolio',
   for(const id of portfolio.selectedGameIds){
     assert.ok(primary.filter(task=>task.gameId===id).length<=2,'per-game primary limit: '+id);
   }
+  // 한 계획 주기의 결과를 다시 전달해도 초과 예약이 발생하지 않아야 한다.
+  const refill=planVibe2AutonomousTasks({
+    catalog,status:{projects:[]},developmentQueue:{items:[]},
+    queue:result.queue,repoRoot:root,
+    maxConcurrentTasks:256,queueMaxConcurrentTasks:256,
+    planningBacklogTarget:80,planningBacklogMinimum:40
+  });
+  const activePrimary=refill.queue.tasks.filter(task=>
+    ['queued','running'].includes(task.status)&&task.executionLane==='GAME_PRIMARY');
+  assert.ok(activePrimary.length<=12,'repeat planning may not overflow portfolio');
+  assert.ok(activePrimary.every(task=>portfolio.selectedGameIds.includes(task.gameId)));
+  for(const id of portfolio.selectedGameIds){
+    assert.ok(activePrimary.filter(task=>task.gameId===id).length<=2,'repeat per-game limit: '+id);
+  }
+  console.log('ROBLOX_PORTFOLIO_PLANNED_TASKS='+primary.length);
+  console.log('ROBLOX_PORTFOLIO_REFILL_ACTIVE_TASKS='+activePrimary.length);
 });
