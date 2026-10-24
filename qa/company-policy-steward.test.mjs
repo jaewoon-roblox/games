@@ -632,3 +632,30 @@ test('original design runtime source excludes held platform seeds and absent web
   assert.ok(source.includes('const active=eligible.filter(seed=>String(seed?.INITIAL_TARGET_PLATFORM'));
   assert.match(source,/HELD_FOREIGN_OR_UNDECLARED/);
 });
+
+test('canonical recovery pipeline imports and rejects unverified learning promotion',async()=>{
+  const {normalizeRecoveryQueue}=await import('../tools/company-recovery-queue.mjs');
+  const {escalateRecoveryCandidates}=await import('../tools/company-recovery-escalation.mjs');
+  const {promoteVerifiedRecoveryLearning}=await import('../tools/company-recovery-learning.mjs');
+  const {distillRecoveryCodePatterns}=await import('../tools/company-recovery-code-distillation.mjs');
+  const empty=normalizeRecoveryQueue({tasks:[]});
+  assert.deepEqual(empty.tasks,[]);
+  const escalated=escalateRecoveryCandidates({
+    gameQueueInput:{tasks:[]},systemAiQueueInput:{tasks:[]},recoveryInput:empty
+  });
+  assert.equal(escalated.queue.tasks.length,0);
+  const result=promoteVerifiedRecoveryLearning({
+    recoveryInput:{tasks:[{
+      id:'roblox-unverified-test',status:'failed',failureSignature:'TEST_FAILURE',
+      recoveryStrategy:'REVIEW_REQUIRED',deterministicEvidence:[],primaryAiReview:'PENDING'
+    }]},
+    experienceInput:{version:3,records:[]}
+  });
+  assert.equal(result.added,0);
+  assert.deepEqual(result.experience.records,[]);
+  const distilled=distillRecoveryCodePatterns({
+    recoveryInput:{tasks:[]},libraryInput:{patterns:[]},authorizedSummary:{},externalMemory:{}
+  });
+  assert.equal(distilled.stats.internalRecoveryAdded,0);
+  assert.equal(distilled.stats.externalAdvisoryAdded,0);
+});
