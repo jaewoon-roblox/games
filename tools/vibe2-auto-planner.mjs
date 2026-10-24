@@ -855,7 +855,7 @@ export function selectRobloxDevelopmentPortfolio(projects=[],catalog={},repoRoot
       ||!['release-confirmed','development-confirmed'].includes(project.releaseState)
       ||posix(project.projectPath)!==exactRoot
       ||!config.requiredSourceFiles.every(relative=>{
-        if(!/^(?:[a-zA-Z0-9_-]+\\/)*[a-zA-Z0-9_.-]+$/.test(relative))return false;
+        if(!relative.split('/').every(part=>/^[a-zA-Z0-9_.-]+$/.test(part)&&part!=='.'&&part!=='..'))return false;
         const file=path.join(repoRoot,exactRoot,relative);
         try{return fs.statSync(file).isFile()&&fs.statSync(file).size>0;}catch{return false;}
       })){
