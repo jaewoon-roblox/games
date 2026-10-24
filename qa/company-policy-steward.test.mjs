@@ -384,3 +384,19 @@ test('Roblox-only workflow triggers and restored canonical runner modules remain
     assert.ok(fs.statSync(path.join(root,file)).isFile(),file+' must exist for canonical runner');
   }
 });
+
+
+// 로블록스 실행기: 원본 책임 모듈의 실제 임포트 의존성 검증 (작업·게시 실행 없음).
+test('restored canonical runner module imports resolve without publishing or writing game source',async()=>{
+  for(const relativePath of [
+    '../tools/vibe2-system-steward.mjs',
+    '../tools/vibe2-fan-in-review.mjs',
+    '../tools/vibe2-incremental-qa.mjs',
+    '../tools/vibe2-experience-control.mjs',
+    '../tools/vibe2-self-architecture-evolution.mjs',
+    '../tools/company-development-roblox-runtime-foundation.mjs'
+  ]){
+    const loaded=await import(new URL(relativePath,import.meta.url).href);
+    assert.ok(loaded&&typeof loaded==='object','canonical module load failed: '+relativePath);
+  }
+});
