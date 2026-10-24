@@ -83,8 +83,6 @@ on:
       - 'assets/asset-manifest.json'
       - 'company-asset-library.json'
       - 'roblox-games/**'
-      - 'unity-games/**'
-      - 'web-games/**'
       - 'package.json'
       - 'package-lock.json'
       - 'pnpm-lock.yaml'

@@ -361,3 +361,26 @@ test('Roblox F0 then private deploy then post-deploy F1-F9 QA precedes canonical
   assert.equal(policy.robloxDevelopmentInvestment.activePortfolio.onePatchRelease,
     'AFTER_ALL_CANONICAL_VERIFIED_GATES_ONLY');
 });
+
+
+// 로블록스 독립 조직: 기존 실행기의 외부 플랫폼 변경 감지와 필수 공통 모듈 복구 경계.
+test('Roblox-only workflow triggers and restored canonical runner modules remain local',()=>{
+  const architecture=JSON.parse(fs.readFileSync(path.join(root,'company-learning/company-architecture-map.json'),'utf8'));
+  const roadmap=JSON.parse(fs.readFileSync(path.join(root,paths[0]),'utf8'));
+  assert.equal(architecture.repository?.fullName,'jaewoon-roblox/games');
+  assert.equal(architecture.repository?.developmentPlatform,'ROBLOX');
+  assert.equal(architecture.repository?.vibeExecution,'OWN_REPOSITORY_ONLY');
+  assert.equal(roadmap.developmentAccess?.ROBLOX,'ALWAYS_ALLOWED');
+  for(const target of ['WEB','UNITY','FORTNITE_UEFN','UNITY_WEB','UNITY_ANDROID']){
+    assert.equal(roadmap.developmentAccess?.[target],'OWNER_HOLD',target+' must remain held');
+  }
+  for(const file of ['.github/workflows/vibe2-24h-runner.yml','.github/workflows/vibe2-continuous-core.yml']){
+    const workflow=fs.readFileSync(path.join(root,file),'utf8');
+    assert.doesNotMatch(workflow,/^\s+- ['"]?(?:web-games|unity-games|unreal-games)\/\*\*/m,
+      file+' must never wake from a foreign game source tree');
+    assert.match(workflow,/roblox-games\/\*\*/);
+  }
+  for(const file of ["tools/vibe2-neural-expansion-readiness.mjs","tools/vibe2-neural-shadow-audit.mjs","tools/vibe2-neural-phase2-readiness.mjs","tools/vibe2-remote-work-lock.mjs","tools/vibe2-performance-sanity.mjs","tools/company-design-checkpoint-recovery.mjs"]){
+    assert.ok(fs.statSync(path.join(root,file)).isFile(),file+' must exist for canonical runner');
+  }
+});
