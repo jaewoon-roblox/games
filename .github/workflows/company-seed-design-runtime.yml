@@ -80,6 +80,35 @@ jobs:
           node --check tools/vibe2-source-worker.mjs
           node tools/company-constitution-enforcer.mjs --phase=worker-before-source-write
           node --test qa/company-policy-steward.test.mjs
+      - name: Compile selected Roblox projects with pinned Rojo
+        shell: bash
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-delay 2 \
+            -o "${RUNNER_TEMP}/rojo.zip" \
+            https://github.com/rojo-rbx/rojo/releases/download/v7.7.0/rojo-7.7.0-linux-x86_64.zip
+          echo "22503e5839864f9d7c2171c48b536fc229f2cc4d8774c9cc149f60941d864073  ${RUNNER_TEMP}/rojo.zip" | sha256sum -c -
+          mkdir -p "${RUNNER_TEMP}/rojo"
+          unzip -q "${RUNNER_TEMP}/rojo.zip" -d "${RUNNER_TEMP}/rojo"
+          chmod +x "${RUNNER_TEMP}/rojo/rojo"
+          node --input-type=module <<'NODE' > "${RUNNER_TEMP}/roblox-roster.txt"
+          import fs from 'node:fs';
+          import {selectRobloxDevelopmentPortfolio} from './tools/vibe2-auto-planner.mjs';
+          const catalog=JSON.parse(fs.readFileSync('game-catalog.json','utf8'));
+          const projects=catalog.games.map(game=>({gameId:game.id,engine:'roblox',
+            projectPath:'roblox-games/'+game.id,releaseState:'development-confirmed'}));
+          const roster=selectRobloxDevelopmentPortfolio(projects,catalog,process.cwd());
+          if(roster.selectedGameIds.length!==6)throw new Error('ROBLOX_FOCUSED_ROSTER_REQUIRED');
+          console.log(roster.selectedGameIds.join('\n'));
+          NODE
+          while IFS= read -r game; do
+            test -n "$game"
+            "${RUNNER_TEMP}/rojo/rojo" build "roblox-games/$game/default.project.json" \
+              --output "${RUNNER_TEMP}/$game.rbxlx"
+            test -s "${RUNNER_TEMP}/$game.rbxlx"
+            echo "ROBLOX_SOURCE_PACKAGE_BUILD=PASS game=$game (not gameplay or publish)"
+          done < "${RUNNER_TEMP}/roblox-roster.txt"
       - name: Assert Roblox ownership without fabricating runtime PASS
         shell: bash
         run: |
