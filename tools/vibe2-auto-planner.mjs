@@ -840,7 +840,6 @@ export function selectRobloxDevelopmentPortfolio(projects=[],catalog={},repoRoot
   }
   if(config.repository!=='jaewoon-roblox/games'
     ||!Number.isInteger(config.activeGameTarget)||config.activeGameTarget<1
-    ||!Number.isInteger(config.queuedDevelopmentTasksPerActiveGame)||config.queuedDevelopmentTasksPerActiveGame<1
     ||!Array.isArray(config.preferredGameIds)||new Set(config.preferredGameIds).size!==config.preferredGameIds.length
     ||!Array.isArray(config.requiredSourceFiles)||config.requiredSourceFiles.length<3)
     throw new Error('ROBLOX_PORTFOLIO_CANONICAL_POLICY_INVALID');
@@ -905,7 +904,7 @@ export function selectRobloxDevelopmentPortfolio(projects=[],catalog={},repoRoot
   return{
     enabled:true,projects:selected,selectedGameIds,
     sourceReadyGameIds:candidates.map(item=>item.gameId),sourceBlockedGameIds,
-    maxQueuedDevelopmentTasks:config.activeGameTarget*config.queuedDevelopmentTasksPerActiveGame
+    maxQueuedDevelopmentTasks:null
   };
 }
 function isAutonomousProductionTarget(project={},repoRoot=process.cwd()){
@@ -4212,10 +4211,8 @@ export function planVibe2AutonomousTasks({status={},catalog={},developmentQueue=
     .map(project=>({...project,ownerFocusedCaretaker:focusedCaretakerProject(project,repoRoot),focusCompletionContract}));
   const robloxPortfolio=selectRobloxDevelopmentPortfolio(discoveredProjects,catalog,repoRoot);
   const allProjects=robloxPortfolio.projects;
-  if(robloxPortfolio.enabled){
-    backlogTarget=Math.min(backlogTarget,robloxPortfolio.maxQueuedDevelopmentTasks);
-    backlogMinimum=Math.min(backlogMinimum,backlogTarget);
-  }
+  // 로블 조직 개발 규모는 기존 큐·러너의 동적 압력으로만 제한한다.
+  // 6개 게임은 후보 선택 범위이며 한 게임의 작업 수나 총 작업 수를 강제하지 않는다.
   const portfolioProjectSort=robloxPortfolio.enabled
     ?(a,b)=>{
       const ai=robloxPortfolio.selectedGameIds.indexOf(a.gameId);
@@ -4303,25 +4300,14 @@ export function planVibe2AutonomousTasks({status={},catalog={},developmentQueue=
   const internalMotionActive=queue.tasks.filter(row=>row.motionRepairWorkUnit?.scope==='INTERNAL_ASSET_LIBRARY'&&['queued','running'].includes(row.status)).length;
   const assetLaneMax=Number(centralPresentationPolicy(repoRoot)?.assetProductionParallelContract?.parallelism?.assetDevelopmentLaneMax)||63;
   const internalMotionCapacity=internalAssetFocus?.enabled===true?Math.max(0,assetLaneMax-internalMotionActive):0;
-  // 조직별 집중 개발은 기존 기획·리필 우회 경로에서도 신규 작업 12개를 넘기지 않는다.
-  // 이미 진행 중인 작업은 건드리지 않고 신규 예약 가능 공간만 계산한다.
-  const activePortfolioTasks=()=>developmentPlanningPool(queue)
-    .filter(item=>item.executionLane==='GAME_PRIMARY'
-      &&robloxPortfolio.selectedGameIds.includes(clean(item.gameId)));
-  const portfolioGlobalRoom=robloxPortfolio.enabled
-    ?Math.max(0,robloxPortfolio.maxQueuedDevelopmentTasks-activePortfolioTasks().length)
-    :Number.MAX_SAFE_INTEGER;
-  const capacity=Math.min(
-    Math.max(normalCapacity,ownerResumableSeedCapacity,focusedSeedCapacity,internalMotionCapacity,webSeedCapacity,distinctSeedCapacity),
-    portfolioGlobalRoom
-  );
+  const capacity=Math.max(normalCapacity,ownerResumableSeedCapacity,focusedSeedCapacity,internalMotionCapacity,webSeedCapacity,distinctSeedCapacity);
   const planningBacklog={
     target:backlogTarget,
     robloxPortfolio:robloxPortfolio.enabled?{
       selectedGameIds:robloxPortfolio.selectedGameIds,
       sourceReadyCount:robloxPortfolio.sourceReadyGameIds.length,
       sourceBlockedGameIds:robloxPortfolio.sourceBlockedGameIds,
-      maxQueuedDevelopmentTasks:robloxPortfolio.maxQueuedDevelopmentTasks
+      allocation:'EXISTING_CANONICAL_QUEUE_AND_RUNNER_BACKPRESSURE'
     }:null,
     supersededLegacyMicroTasks:microSupersede.count,
     minimum:backlogMinimum,
@@ -4361,22 +4347,12 @@ export function planVibe2AutonomousTasks({status={},catalog={},developmentQueue=
   ];
   for(const {project,webSeed,distinctSeed,focusedSeed} of planningProjects){
     if(planned.length>=capacity)break;
-    const portfolioGameLimit=robloxPortfolio.enabled
-      ?Number(centralPresentationPolicy(repoRoot)?.robloxDevelopmentInvestment?.activePortfolio?.queuedDevelopmentTasksPerActiveGame)
-      :Number.MAX_SAFE_INTEGER;
-    const gamePrimaryRoom=robloxPortfolio.enabled
-      ?Math.max(0,portfolioGameLimit-activePortfolioTasks().filter(item=>clean(item.gameId)===project.gameId).length)
-      :Number.MAX_SAFE_INTEGER;
-    if(gamePrimaryRoom===0)continue;
     if(webSeed&&(webFlowGames.size>=webFlowTarget||webFlowGames.has(project.gameId)))continue;
     if(distinctSeed&&(activeGameIds.size>=distinctTarget||activeGameIds.has(project.gameId)))continue;
     if(!webSeed&&!distinctSeed&&!focusedSeed&&normalCapacity===0&&ownerResumableSeedCapacity===0&&internalMotionCapacity===0)continue;
     const ownerResumableLaneKey=clean(project.gameId)+'|'+studioQualityLane(project);
     const ownerResumableSeedRequired=ownerResumableMissingLaneKeys.has(ownerResumableLaneKey);
-    const remaining=Math.min(
-      webSeed||distinctSeed||focusedSeed||ownerResumableSeedRequired?1:Math.max(1,capacity-planned.length),
-      gamePrimaryRoom
-    );
+    const remaining=webSeed||distinctSeed||focusedSeed||ownerResumableSeedRequired?1:Math.max(1,capacity-planned.length);
     const candidates=findSafeTasks(project,repoRoot,queue,assetRegistryCache).filter(candidate=>
       (!webSeed||(webFlowMatches(candidate)&&isDevelopmentImplementation(candidate)&&!candidate.assetProductionLane))
       &&(!robloxPortfolio.enabled||clean(candidate.target).toLowerCase()==='roblox')
@@ -4408,12 +4384,6 @@ export function planVibe2AutonomousTasks({status={},catalog={},developmentQueue=
     const acceptedTasks=project.ownerResumableBuildUp===true
       ?pkg.tasks.map(task=>({...task,maxRetries:null,retryPolicy:'UNLIMITED_CAUSAL_REPAIR'}))
       :pkg.tasks;
-    // 패키지가 예상보다 확장될 수 있으므로 신규 등록 직전에도 동일 상한을 검증한다.
-    if(robloxPortfolio.enabled){
-      const newGamePrimary=acceptedTasks.filter(item=>item.executionLane==='GAME_PRIMARY');
-      if(newGamePrimary.length>gamePrimaryRoom||newGamePrimary.length>capacity-planned.length)
-        continue;
-    }
     queue=createVibeContinuousQueue({tasks:[...queue.tasks,...acceptedTasks],maxConcurrentTasks:queue.maxConcurrentTasks});
     planned.push(...acceptedTasks);
     packages.push({...pkg,tasks:acceptedTasks});
