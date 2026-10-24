@@ -463,8 +463,28 @@ test('Roblox canonical autonomous plan reserves a real task and generates work i
     gameId:task.gameId,workOrderRun:order.run,workOrderReason:order.reason||null,
     target:order.target||null
   }));
-  assert.equal(order.run,true,'canonical work-order blocked: '+String(order.reason));
-  assert.equal(order.target,'roblox');
-  assert.equal(order.workerPolicy?.directMainWrite,false);
-  assert.equal(order.deployment?.requiresVerifiedQA,true);
+  // 검증된 외부 자산 학습이 없으면 기존 자산 게이트는 차단된 상태를 유지한다.
+  assert.ok(order.run===true||
+    order.reason==='VERIFIED_COMMERCIAL_BLACK_BOX_DISTILLATION_REQUIRED_FOR_INTERNAL_ASSET_PRODUCTION');
+  const request={gameId:'simple-rpg',goal:'기존 캐릭터 움직임과 화면 UI를 기존 기능 보존하며 수정',requestId:'pr-integration-work',
+    files:'client/Game.client.luau;shared/GameConfig.luau'};
+  const queued=enqueueOwnerRobloxOnePatch({queue:{tasks:[]},catalog,request,repoRoot:root,policy});
+  const gameBatch=reserveVibeTaskBatch(queued.queue,{
+    maxConcurrentTasks:1,lane:'game-primary',policy,
+    reservation:{reservationRunId:'roblox-pr-local-owner-work',reservationRunAttempt:1}
+  });
+  assert.equal(gameBatch.tasks.length,1,'owner build-up must use canonical game-primary reservation');
+  const gameOrder=buildVibeContinuousWorkOrder({
+    runtime,queue:gameBatch.queue,experience:{records:[]},
+    taskId:gameBatch.tasks[0].id,centralPolicySnapshot:null,
+    centralPolicyLiveRef:'origin/main'
+  });
+  console.log('ROBLOX_CANONICAL_GAME_PRIMARY_ORDER='+JSON.stringify({
+    reserved:gameBatch.reserved,run:gameOrder.run,reason:gameOrder.reason||null,
+    taskId:gameBatch.tasks[0].id,target:gameOrder.target||null
+  }));
+  assert.equal(gameOrder.run,true,'owner game-primary work-order blocked: '+String(gameOrder.reason));
+  assert.equal(gameOrder.target,'roblox');
+  assert.equal(gameOrder.workerPolicy?.directMainWrite,false);
+  assert.equal(gameOrder.deployment?.requiresVerifiedQA,true);
 });
